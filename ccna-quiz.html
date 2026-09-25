@@ -68,6 +68,9 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .chip.multi{background:#F4E3BF;color:#7A5100}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chip.multi{background:#3A2F14;color:#E8C271}}
 :root[data-theme="dark"] .chip.multi{background:#3A2F14;color:#E8C271}
+.chip.lab{background:var(--line);color:var(--muted)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chip.lab{background:#3A444A;color:#AFC0C4}}
+:root[data-theme="dark"] .chip.lab{background:#3A444A;color:#AFC0C4}
 .pos{margin-left:auto;font-family:var(--mono);font-size:14px;color:var(--muted)}
 .card-body{flex:1;min-height:0;overflow-y:auto;padding:22px 28px 28px;overscroll-behavior:contain}
 .stem{font-size:19px;line-height:1.65;margin:0 0 18px;white-space:pre-line;max-width:72ch}
@@ -225,6 +228,8 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .ansbox{font-family:var(--cjk);font-size:16px;line-height:1.75;background:var(--ok-soft);border-radius:10px;padding:12px 16px;max-width:78ch}
 .ansbox p{margin:0 0 4px}.ansbox b{font-family:var(--mono);color:var(--ok)}
 .ansbox .m{font-family:var(--mono);font-size:15px}
+.labnote{font-family:var(--cjk);font-size:15.5px;line-height:1.75;background:var(--bg);border:1.5px dashed var(--line);border-radius:10px;padding:14px 16px;max-width:78ch}
+.labnote b{display:block;margin-bottom:4px;color:var(--ink)}
 pre.code{margin:0 0 18px;background:#10181C;color:#DCE8E6;border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:14px;line-height:1.55;overflow-x:auto;max-width:100%}
 @media (max-width:720px){.dd,.dd.match{grid-template-columns:1fr}.chip-item{font-size:15px}}
 
@@ -494,6 +499,16 @@ function curN(){
 }
 function record(n){ return S.mode === 'quiz' ? S.quiz[n] : S.mode === 'wrong' ? wrongDone[n] : null; }
 function buildWrongList(){ wrongList = Object.keys(S.wrong).map(Number).sort((a, b) => a - b); wrongDone = {}; S.pos.wrong = 0; }
+// 題庫裡沒有標準答案的題目（例如需要實機/模擬器操作驗證的實作題），一律視為無法批改，只顯示題目本身
+function hasAnswer(q){
+  if (q.type === 'mc') return Array.isArray(q.opts) && q.opts.length > 0 && !!q.ans;
+  if (q.type === 'dd' && q.dd){
+    return q.dd.kind === 'match'
+      ? Array.isArray(q.dd.targets) && q.dd.targets.length > 0 && q.dd.targets.every(t => t.ans)
+      : Array.isArray(q.dd.groups) && q.dd.groups.length > 0 && q.dd.groups.every(g => Array.isArray(g.ans) && g.ans.length);
+  }
+  return false;
+}
 function resetCurrent(){ sel = []; place = {}; picked = null; }
 function applyTheme(){ if (S.theme) document.documentElement.setAttribute('data-theme', S.theme); else document.documentElement.removeAttribute('data-theme'); }
 
@@ -534,6 +549,7 @@ function placeItem(d, itemIdx, targetId){
 
 /* ---------- rendering ---------- */
 function typeChip(q){
+  if (!hasAnswer(q)) return '<span class="chip lab">實作題</span>';
   if (q.type === 'dd') return '<span class="chip">拖放題</span>';
   if (q.k > 1) return `<span class="chip multi">複選・選 ${q.k} 項</span>`;
   return '<span class="chip">單選</span>';
@@ -613,6 +629,7 @@ function render(keepScroll){
   }
   const q = byN.get(n), L = list(), rec = record(n);
   const inAdhoc = adhoc !== null;   // 從總覽直接查看清單外的題目：不算進本次測驗的進度／統計
+  const isLab = !hasAnswer(q);      // 題庫沒附答案：視為實作題，只顯示題目，不提供作答/批改
   const revealed = !!rec;
   const hist = S.mode === 'wrong' ? (rec ? rec.prev : S.wrong[n]) : null;
   const histTag = hist ? `<span class="hist">之前錯過 ${hist.c} 次</span>` : '';
@@ -624,7 +641,9 @@ function render(keepScroll){
   if (q.code) h += `<pre class="code">${esc(q.code)}</pre>`;
   if (q.img) h += exhibitHTML(q.img, `第 ${n} 題附圖`);
 
-  if (q.type === 'mc'){
+  if (isLab){
+    h += `<div class="labnote"><b>這一題原始題庫沒有附標準答案。</b>通常代表這是需要實際在裝置或模擬器（如 Packet Tracer）上操作、驗證結果的實作題，本測驗系統不提供選項作答與批改，直接看過即可。</div>`;
+  } else if (q.type === 'mc'){
     const chosen = rec ? rec.sel : sel;
     h += '<ul class="opts">' + q.opts.map(([k, t]) => {
       let cls = 'opt' + (/\n/.test(t) || /^(interface|ipv6 address|ip address)/.test(t) ? ' code' : '');
@@ -652,7 +671,8 @@ function render(keepScroll){
     }
     if (revealed) h += `<section class="ans-area"><h3>正確答案</h3>${answerBox(q)}</section>`;
   }
-  if (revealed) h += `<section class="ex"><h3>解析</h3>${renderEx(q)}</section>`;
+  if (isLab){ if (q.ex && q.ex.length) h += `<section class="ex"><h3>說明</h3>${renderEx(q)}</section>`; }
+  else if (revealed) h += `<section class="ex"><h3>解析</h3>${renderEx(q)}</section>`;
   h += '</div>';
   card.innerHTML = h;
   if (keepScroll && $('body')) $('body').scrollTop = top;
@@ -661,7 +681,10 @@ function render(keepScroll){
   $('prevBtn').disabled = inAdhoc || S.pos[S.mode] === 0;
   const last = inAdhoc || S.pos[S.mode] >= L.length - 1;
   mb.className = 'btn primary'; mb.disabled = false; ab.hidden = true;
-  if (!rec){
+  if (isLab){
+    if (inAdhoc){ mb.dataset.act = 'home'; mb.textContent = '返回總覽'; mb.disabled = false; }
+    else { mb.dataset.act = 'next'; mb.textContent = last ? '已是最後一題' : '下一題'; mb.disabled = last; }
+  } else if (!rec){
     const complete = q.type === 'mc' ? sel.length === q.k : Object.keys(place).length === slotsOf(q.dd).length;
     mb.dataset.act = 'submit'; mb.textContent = '送出答案'; mb.disabled = !complete;
     if (!last){ ab.hidden = false; ab.textContent = '略過'; ab.dataset.act = 'next'; }
