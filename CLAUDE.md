@@ -41,13 +41,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - 若要新增／修改題目，建議寫 Python 或 Node 腳本解析並改寫這個 JS 陣列，不要直接用一般文字編輯器整行手動改，容易破壞語法。改完要驗證 `n` 從 1 起連續無缺號，並同步更新標題、選單小標、`.mnote` 與首頁 `home-sum` 中寫死的總題數與拖放題數。
    - **沒有標準答案的題目（實作題）**：若某題屬於需要實際在裝置或模擬器（如 Packet Tracer）上操作驗證的實作題，資料裡不要硬塞假答案——`mc` 題給 `opts: []` 且不要給 `ans`，`dd` 題不要讓 `dd.targets[].ans` / `dd.groups[].ans` 補滿。前端 `hasAnswer(q)`（約第 543 行）會自動偵測「答案不完整」的題目，並在測驗畫面把它顯示成「實作題」提示卡（只顯示題目本身，不提供選項作答與批改，直接按「下一題」略過即可），不會計入作答進度／錯題本/統計。
 3. **應用邏輯（第 360 行起）**：原生 JavaScript，無框架、無外部 JS 套件。
-   - 全域狀態物件 `S`：`{mode, pos, order, shuffle, range, count, quiz, wrong, mastered, theme, updatedAt}`，對應目前模式、作答進度、答題紀錄、錯題、已精熟題號等。
-   - 三種模式對應頂部分頁：`home`（總覽，含題號總覽格 + 錯題摘要 + 統計）、`quiz`（測驗）、`wrong`（錯題本）。
+   - 全域狀態物件 `S`：`{mode, pos, order, shuffle, range, count, quiz, wrong, mastered, star, theme, updatedAt}`，對應目前模式、作答進度、答題紀錄、錯題、已精熟題號、重點背誦題號（`star`：`{題號: 加入時間}`）等。
+   - 四種模式對應頂部分頁：`home`（總覽，含題號總覽格 + 錯題摘要 + 重點背誦清單 + 統計）、`quiz`（測驗）、`wrong`（錯題本）、`key`（重點背誦）。
+   - 重點背誦：每題卡片右上角的 ☆ 按鈕（或快捷鍵 `S`）呼叫 `toggleStar()` 加入／移除；`key` 模式清單由 `buildKeyList()` 依題號建立，可正常作答（答錯同樣記入錯題本），也可按「直接看答案」（`peek()`）不批改直接顯示答案與解析，本輪紀錄存在 `keyDone`（不存檔）。
    - 儲存與同步：`save()` 一律先寫入 `localStorage`（key `ccna120-v3`，並相容讀取舊版 `ccna120-v1`/`v2`）；若當前是在 Claude Artifact 環境執行（偵測到 `window.claude.use('db'/'user')`），會另外 debounce（1200ms）同步到雲端文件 `data/users/{uid}/state`（`connectCloud()` / `flush()`），讓紀錄能跨裝置沿用；否則僅存在瀏覽器本機。
-   - 錯題本匯入／匯出：功能選單「紀錄管理」中的按鈕，`exportWrong()` 把 `S.wrong` 下載成 JSON，`importWrongText()` 讀回並與現有錯題合併（次數加總、保留較新的作答紀錄，略過題庫中不存在的題號）。
+   - 錯題本匯入／匯出：功能選單「紀錄管理」中的按鈕，`exportWrong()` 把 `S.wrong` 與 `S.star` 下載成 JSON，`importWrongText()` 讀回並與現有錯題合併（次數加總、保留較新的作答紀錄，略過題庫中不存在的題號）。
    - 渲染方式是手動重繪：修改 `S` 後呼叫 `render()`（或針對性呼叫 `renderHome()` / `renderPanel()` / `renderStats()`）整段重新產生 innerHTML，沒有虛擬 DOM 或框架層。
    - 拖放題（dd）邏輯集中在 `slotsOf` / `slotCorrect` / `correctPlacement` / `placeItem` / `renderBoard`，同時支援滑鼠拖曳與觸控「點選再點空格」兩種互動方式。
-   - 鍵盤快捷鍵綁在檔案尾端的 `document.addEventListener('keydown', ...)`：`M` 開關選單、`←`/`→` 換題、`A`–`F` 選答、`Enter` 送出或顯示答案。
+   - 鍵盤快捷鍵綁在檔案尾端的 `document.addEventListener('keydown', ...)`：`M` 開關選單、`←`/`→` 換題、`A`–`F` 選答、`Enter` 送出或顯示答案、`S` 加入／移除重點背誦。
 
 ## 注意事項
 

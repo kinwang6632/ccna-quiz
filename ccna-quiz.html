@@ -54,6 +54,14 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .seg .cnt{font-family:var(--mono);font-size:12px;background:var(--bad);color:#fff;border-radius:9px;padding:0 6px;line-height:18px}
 .seg .cnt:empty{display:none}
+.seg .cnt.star{background:#C98A12}
+.starBtn{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;cursor:pointer;font-family:var(--cjk);font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap}
+.card-head .pos + .starBtn{margin-left:8px}
+.starBtn .ic{font-size:15px;line-height:1}
+.starBtn:hover{border-color:#E0B24A}
+.starBtn[aria-pressed="true"]{background:#FBEBC6;border-color:#E0B24A;color:#7A5100}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .starBtn[aria-pressed="true"]{background:#3A2F14;border-color:#8A6A1E;color:#E8C271}}
+:root[data-theme="dark"] .starBtn[aria-pressed="true"]{background:#3A2F14;border-color:#8A6A1E;color:#E8C271}
 .iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--muted)}
 
 .main{flex:1;min-height:0;display:flex;padding:0 clamp(8px,2vw,24px) clamp(8px,1.5vw,16px);justify-content:center}
@@ -176,6 +184,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .port.bad::before{background:#FF5B52;box-shadow:0 0 6px #FF5B52}
 .port.mastered::before{background:#7FA6FF;box-shadow:0 0 6px #7FA6FF}
 .port.seen::before{background:#E9B949}
+.port.star::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:#F2C14E}
 .port.cur{outline:2px solid #7FE0E7;outline-offset:1px;color:#fff}
 .port:hover{color:#fff}
 .legend{display:flex;gap:12px;flex-wrap:wrap;margin:10px 2px 0;font-family:var(--cjk);font-size:12px;color:#A9BBBF}
@@ -258,6 +267,10 @@ pre.code{margin:0 0 18px;background:#10181C;color:#DCE8E6;border-radius:10px;pad
 .wmeta b{font-family:var(--mono)}
 .wwhen{margin-left:auto}
 .wcount{font-family:var(--mono);font-weight:600;color:var(--bad);font-size:15px;padding-top:1px}
+.witem.kitem{border-left-color:#E0B24A}
+.witem.kitem:hover{border-color:#E0B24A}
+.home-key{margin-top:24px}
+.verdict.peek{background:var(--accent-soft);color:var(--accent)}
 .bad-t{color:var(--bad)} .ok-t{color:var(--ok)}
 .wempty{border:1.5px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted);font-family:var(--cjk);font-size:15px;line-height:1.7}
 .hist{font-family:var(--cjk);font-size:13px;color:var(--bad);background:var(--bad-soft);padding:3px 10px;border-radius:999px;white-space:nowrap}
@@ -293,6 +306,7 @@ body.is-home .bar{display:none}
   .home-actions .btn{flex:1 1 100%}
   .witem{padding:10px 12px;gap:10px}
 }
+@media (max-width:640px){ .starBtn .st-t{display:none} .starBtn{padding:4px 9px} }
 @media (max-width:360px){ .card-head .chip{display:none} .hist{font-size:12px;padding:2px 8px} .remain{font-size:12px;padding:2px 8px} }
 @media (max-height:540px) and (orientation:landscape){
   .top{grid-template-columns:auto 1fr auto;grid-template-areas:none;padding:6px 12px;gap:10px}
@@ -318,6 +332,7 @@ body.is-home .bar{display:none}
       <button data-mode="home" aria-pressed="true">總覽</button>
       <button data-mode="quiz" aria-pressed="false">測驗</button>
       <button data-mode="wrong" aria-pressed="false">錯題本<span class="cnt" id="wrongCnt"></span></button>
+      <button data-mode="key" aria-pressed="false">重點<span class="cnt star" id="keyCnt"></span></button>
     </nav>
     <button class="menubtn" id="menuBtn" aria-haspopup="dialog" aria-controls="side" aria-expanded="false"><span class="burger" aria-hidden="true"><i></i><i></i><i></i></span>選單</button>
   </header>
@@ -327,7 +342,7 @@ body.is-home .bar{display:none}
       <div class="bar">
         <button class="btn" id="prevBtn">上一題</button>
         <label class="jump">跳到第<input id="jumpIn" inputmode="numeric" aria-label="題號">題</label>
-        <span class="hint" id="kbHint">鍵盤：← → 換題，A–F 選答，Enter 送出或顯示答案</span>
+        <span class="hint" id="kbHint">鍵盤：← → 換題，A–F 選答，Enter 送出，S 標記重點</span>
         <span class="spacer"></span>
         <button class="btn" id="altBtn" hidden></button>
         <button class="btn primary" id="mainBtn">下一題</button>
@@ -342,13 +357,13 @@ body.is-home .bar{display:none}
       <section class="panel">
         <div class="panel-head"><b id="panelTitle">題號</b><span id="panelMeta"></span></div>
         <div class="ports" id="ports"></div>
-        <div class="legend"><span><i style="background:#3FD17F"></i>答對</span><span><i style="background:#FF5B52"></i>答錯</span><span><i style="background:var(--led-off)"></i>未作答</span></div>
+        <div class="legend"><span><i style="background:#3FD17F"></i>答對</span><span><i style="background:#FF5B52"></i>答錯</span><span><i style="background:var(--led-off)"></i>未作答</span><span><i style="background:#F2C14E;width:5px;height:5px;border-radius:50%"></i>重點</span></div>
       </section>
       <section class="msec"><h2>測驗成績</h2><div id="menuStats"></div></section>
       <section class="msec"><h2>設定</h2><div class="mlist" id="menuSettings"></div></section>
       <section class="msec"><h2>紀錄管理</h2><div class="mlist" id="menuManage"></div></section>
       <p class="menu-sync" id="menuSync"></p>
-      <p class="mnote">共 1100 題（第 1–1100 題全數收錄）。<br>快捷鍵：M 開關選單，← → 換題，A–F 選答，Enter 送出或顯示答案。</p>
+      <p class="mnote">共 1100 題（第 1–1100 題全數收錄）。<br>快捷鍵：M 開關選單，← → 換題，A–F 選答，Enter 送出或顯示答案，S 加入／移除重點背誦。</p>
     </div>
   </aside>
   </main>
@@ -384,24 +399,31 @@ function normMastered(m){
   for (const n of Object.keys(m || {})) if (byN.has(+n)) out[n] = true;
   return out;
 }
+// 重點背誦：{題號: 加入時間}
+function normStar(m){
+  const out = {};
+  for (const [n, v] of Object.entries(m || {})) if (byN.has(+n)) out[n] = typeof v === 'number' ? v : Date.now();
+  return out;
+}
 function adopt(src){
   if (!src) return;
   if (src.quiz && typeof src.quiz === 'object') S.quiz = src.quiz;
   S.wrong = normWrong(src.wrong);
   S.mastered = normMastered(src.mastered);
+  S.star = normStar(src.star);
   if (Array.isArray(src.order) && src.order.length && src.order.every(n => byN.has(n))) S.order = src.order;
   S.shuffle = !!src.shuffle;
   if (src.range && Number.isFinite(src.range.from) && Number.isFinite(src.range.to)) S.range = normRange(src.range.from, src.range.to);
   S.count = Number.isFinite(src.count) && src.count > 0 ? src.count : null;
-  if (src.pos) S.pos = Object.assign({quiz:0, wrong:0}, src.pos);
+  if (src.pos) S.pos = Object.assign({quiz:0, wrong:0, key:0}, src.pos);
   S.theme = src.theme || null;
   S.updatedAt = src.updatedAt || 0;
 }
-const S = {mode:'home', pos:{quiz:0, wrong:0}, order:ALL.slice(), shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, quiz:{}, wrong:{}, mastered:{}, theme:null, updatedAt:0};
+const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:ALL.slice(), shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, updatedAt:0};
 adopt(readLocal());
 if (!S.order.length) rebuildOrder(false);
 
-const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, pos:S.pos, mastered:S.mastered, theme:S.theme});
+const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, pos:S.pos, mastered:S.mastered, star:S.star, theme:S.theme});
 let lastSig = JSON.stringify(persisted());
 const Sync = {ref:null, state:'local', timer:null, writing:false, dirty:false};
 
@@ -446,7 +468,7 @@ async function connectCloud(){
     const snap = await ref.get();
     const remote = snap.exists ? snap.data() : null;
     Sync.ref = ref;
-    const hasLocal = Object.keys(S.quiz).length || Object.keys(S.wrong).length;
+    const hasLocal = Object.keys(S.quiz).length || Object.keys(S.wrong).length || Object.keys(S.star).length;
     if (remote && (remote.updatedAt || 0) >= (S.updatedAt || 0)){
       const keepMode = S.mode;
       adopt(JSON.parse(JSON.stringify(remote)));
@@ -484,6 +506,8 @@ let place = {};            // DD placement for the current question: slotId -> i
 let picked = null;         // DD tap-to-place: selected item index
 let wrongList = [];
 let wrongDone = {};
+let keyList = [];          // 重點背誦模式的題目清單（進入模式時依題號排序建立）
+let keyDone = {};          // 重點背誦模式本輪的作答／看答案紀錄（不存檔）
 let importMsg = '';        // 匯入錯題本後的暫時狀態文字
 let importMsgTimer = null;
 let adhoc = null;           // 從總覽直接查看、但不在本次測驗清單內的題號（只是查看，不動清單本身）
@@ -492,7 +516,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const isMono = s => /^[0-9a-fA-F:.\/\s-]+$/.test(s) && /[.:]/.test(s);
 
-function list(){ return S.mode === 'home' ? ALL : S.mode === 'quiz' ? S.order : wrongList; }
+function list(){ return S.mode === 'home' ? ALL : S.mode === 'quiz' ? S.order : S.mode === 'key' ? keyList : wrongList; }
 function curN(){
   if (S.mode === 'home') return null;
   if (adhoc !== null) return adhoc;      // 直接查看不在清單內的題目：不動用清單，也不動 S.pos
@@ -500,10 +524,20 @@ function curN(){
   S.pos[S.mode] = Math.min(Math.max(S.pos[S.mode], 0), L.length - 1);
   return L[S.pos[S.mode]];
 }
-function record(n){ return S.mode === 'quiz' ? S.quiz[n] : S.mode === 'wrong' ? wrongDone[n] : null; }
+function record(n){ return S.mode === 'quiz' ? S.quiz[n] : S.mode === 'wrong' ? wrongDone[n] : S.mode === 'key' ? keyDone[n] : null; }
 function buildWrongList(){ wrongList = Object.keys(S.wrong).map(Number).sort((a, b) => a - b); wrongDone = {}; S.pos.wrong = 0; }
+function buildKeyList(){ keyList = Object.keys(S.star).map(Number).sort((a, b) => a - b); keyDone = {}; S.pos.key = 0; }
+function toggleStar(n){
+  if (!byN.has(n)) return;
+  if (S.star[n]) delete S.star[n]; else S.star[n] = Date.now();
+  render(true);
+}
+function starBtnHTML(n){
+  const on = !!S.star[n];
+  return `<button class="starBtn" data-star="${n}" aria-pressed="${on}" title="${on ? '從重點背誦移除' : '加入重點背誦'}（快捷鍵 S）"><span class="ic" aria-hidden="true">${on ? '★' : '☆'}</span><span class="st-t">${on ? '重點' : '加入重點'}</span></button>`;
+}
 function exportWrong(){
-  const payload = {app:'ccna-quiz', kind:'wrong', version:1, exportedAt:Date.now(), count:Object.keys(S.wrong).length, wrong:S.wrong};
+  const payload = {app:'ccna-quiz', kind:'wrong', version:1, exportedAt:Date.now(), count:Object.keys(S.wrong).length, wrong:S.wrong, star:S.star};
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -529,15 +563,20 @@ function mergeWrong(incoming){
 function importWrongText(text){
   let parsed;
   try { parsed = JSON.parse(text); } catch (e){ return {error:'檔案不是有效的 JSON'}; }
-  const raw = parsed && typeof parsed === 'object' ? (parsed.wrong && typeof parsed.wrong === 'object' ? parsed.wrong : parsed) : null;
+  const raw = parsed && typeof parsed === 'object' ? (parsed.wrong && typeof parsed.wrong === 'object' ? parsed.wrong : (parsed.star ? {} : parsed)) : null;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {error:'檔案內容格式不符'};
   const total = Object.keys(raw).length;
   const incoming = normWrong(raw);
   const skipped = total - Object.keys(incoming).length;
   const {added, merged} = mergeWrong(incoming);
-  if (!added && !merged) return {error: skipped ? '檔案裡的題號都不屬於本題庫' : '檔案沒有可匯入的題目'};
+  // 重點背誦清單：取聯集，保留較早的加入時間
+  let starAdded = 0;
+  if (parsed.star && typeof parsed.star === 'object' && !Array.isArray(parsed.star)){
+    for (const [n, t] of Object.entries(normStar(parsed.star))) if (!S.star[n]){ S.star[n] = t; starAdded++; }
+  }
+  if (!added && !merged && !starAdded) return {error: skipped ? '檔案裡的題號都不屬於本題庫' : '檔案沒有可匯入的題目'};
   buildWrongList();
-  return {added, merged, skipped};
+  return {added, merged, skipped, starAdded};
 }
 // 題庫裡沒有標準答案的題目（例如需要實機/模擬器操作驗證的實作題），一律視為無法批改，只顯示題目本身
 function hasAnswer(q){
@@ -658,12 +697,16 @@ function render(keepScroll){
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
   const wc = Object.keys(S.wrong).length;
   $('wrongCnt').textContent = wc ? wc : '';
+  const kc = Object.keys(S.star).length;
+  $('keyCnt').textContent = kc ? kc : '';
   const card = $('card'), mb = $('mainBtn'), ab = $('altBtn');
   document.body.classList.toggle('is-home', S.mode === 'home');
   if (S.mode === 'home'){ renderHome(keepScroll ? top : 0); renderPanel(); renderStats(); save(); return; }
   const n = curN();
   if (n === null){
-    card.innerHTML = `<div class="empty"><div><b>錯題本目前是空的</b><p>在「測驗」模式答錯的題目會自動收進這裡。</p><p>錯題本裡答對後不會自動移出，按下「從錯題本移除」才會刪除該題。</p></div></div>`;
+    card.innerHTML = S.mode === 'key'
+      ? `<div class="empty"><div><b>重點背誦清單目前是空的</b><p>作答時按題目右上角的「☆ 加入重點」（或快捷鍵 S），就能把要背的題目收進這裡。</p><p>在這裡可以作答，也可以按「直接看答案」快速背誦。</p></div></div>`
+      : `<div class="empty"><div><b>錯題本目前是空的</b><p>在「測驗」模式答錯的題目會自動收進這裡。</p><p>錯題本裡答對後不會自動移出，按下「從錯題本移除」才會刪除該題。</p></div></div>`;
     $('prevBtn').disabled = true; mb.disabled = true; mb.textContent = '下一題'; ab.hidden = true;
     renderPanel(); renderStats(); save(); return;
   }
@@ -673,10 +716,10 @@ function render(keepScroll){
   const revealed = !!rec;
   const hist = S.mode === 'wrong' ? (rec ? rec.prev : S.wrong[n]) : null;
   const histTag = hist ? `<span class="hist">之前錯過 ${hist.c} 次</span>` : '';
-  const remain = (!inAdhoc && (S.mode === 'quiz' || S.mode === 'wrong')) ? L.filter(x => x !== n && !record(x)).length : null;
+  const remain = (!inAdhoc && (S.mode === 'quiz' || S.mode === 'wrong' || S.mode === 'key')) ? L.filter(x => x !== n && !record(x)).length : null;
   const remainTag = remain !== null ? `<span class="remain">${remain > 0 ? `還剩 ${remain} 題未作答` : '全部已作答'}</span>` : (inAdhoc ? '<span class="remain">直接查看（不影響測驗進度）</span>' : '');
   const posTag = inAdhoc ? '' : `<span class="pos">${S.pos[S.mode] + 1} / ${L.length}</span>`;
-  let h = `<div class="card-head"><span class="qno">Q${n}</span>${typeChip(q)}${histTag}${remainTag}${posTag}</div><div class="card-body" id="body">`;
+  let h = `<div class="card-head"><span class="qno">Q${n}</span>${typeChip(q)}${histTag}${remainTag}${posTag}${starBtnHTML(n)}</div><div class="card-body" id="body">`;
   if (q.stem) h += `<p class="stem">${esc(q.stem)}</p>`;
   if (q.code) h += `<pre class="code">${esc(q.code)}</pre>`;
   if (q.img) h += exhibitHTML(q.img, `第 ${n} 題附圖`);
@@ -696,7 +739,8 @@ function render(keepScroll){
       const locked = revealed;
       return `<li><button class="${cls}" data-k="${k}" ${locked ? 'disabled' : ''}><span class="k">${k}</span><span class="t">${esc(t)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</button></li>`;
     }).join('') + '</ul>';
-    if (rec){
+    if (rec && rec.peek) h += `<div class="verdict peek">正確答案是 ${q.ans.split('').join('、')}</div>`;
+    else if (rec){
       h += rec.ok ? `<div class="verdict ok">答對了${wrongToggleTag(n)}${masterToggleTag(n)}</div>`
                   : `<div class="verdict bad">答錯了，正確答案是 ${q.ans.split('').join('、')}<small>已記入錯題本</small></div>`;
       if (S.mode === 'wrong' && rec.prev && rec.prev.last && rec.prev.last.sel) h += `<p class="prevans">上次你選 ${rec.prev.last.sel.join('、')}${rec.prev.t ? '（' + when(rec.prev.t) + '）' : ''}</p>`;
@@ -705,7 +749,8 @@ function render(keepScroll){
     let P = place, grade = false, locked = false;
     if (rec){ P = rec.place; grade = true; locked = true; }
     h += renderBoard(q, locked, P, grade);
-    if (rec){
+    if (rec && rec.peek) h += `<div class="verdict peek">以下是正確的放法</div>`;
+    else if (rec){
       h += rec.ok ? `<div class="verdict ok">全部放對了${wrongToggleTag(n)}${masterToggleTag(n)}</div>`
                   : `<div class="verdict bad">有放錯的地方，紅色的是錯的<small>已記入錯題本</small></div>`;
     }
@@ -727,7 +772,8 @@ function render(keepScroll){
   } else if (!rec){
     const complete = q.type === 'mc' ? sel.length === q.k : Object.keys(place).length === slotsOf(q.dd).length;
     mb.dataset.act = 'submit'; mb.textContent = '送出答案'; mb.disabled = !complete;
-    if (!last){ ab.hidden = false; ab.textContent = '略過'; ab.dataset.act = 'next'; }
+    if (S.mode === 'key' && !inAdhoc){ ab.hidden = false; ab.textContent = '直接看答案'; ab.dataset.act = 'peek'; }
+    else if (!last){ ab.hidden = false; ab.textContent = '略過'; ab.dataset.act = 'next'; }
   } else if (inAdhoc){
     mb.dataset.act = 'home'; mb.textContent = '返回總覽'; mb.disabled = false;
   } else {
@@ -770,7 +816,8 @@ function renderHome(scrollTop){
   const nextQuiz = S.order.findIndex(n => !S.quiz[n]);
   const orderDone = S.order.filter(n => S.quiz[n]).length;
   const customRange = S.range.from !== RANGE_MIN || S.range.to !== RANGE_MAX || S.count;
-  const fresh = !done && !wrongIds.length;
+  const keyIds = Object.keys(S.star).map(Number).sort((a, b) => a - b);
+  const fresh = !done && !wrongIds.length && !keyIds.length;
   let h = `<div class="card-body home" id="body"><div class="home-grid">
     <section class="home-intro">
       <h1 class="home-title">${fresh ? '開始練習 CCNA 考古題' : '歡迎回來'}</h1>
@@ -778,13 +825,14 @@ function renderHome(scrollTop){
         : `測驗已作答 <b>${done}</b> / ${ALL.length} 題，答對 <b>${right}</b> 題${done ? `（${Math.round(right / done * 100)}%）` : ''}。錯題本裡有 <b class="${wrongIds.length ? 'bad-t' : ''}">${wrongIds.length}</b> 題待複習。`}${customRange ? `<br>目前設定的出題範圍：第 ${S.range.from}–${S.range.to} 題，本次測驗 ${S.order.length} 題。` : ''}</p>
       <div class="home-actions">
         ${wrongIds.length ? `<button class="btn primary" data-go="wrong">複習錯題（${wrongIds.length} 題）</button>` : ''}
+        ${keyIds.length ? `<button class="btn" data-go="key">背誦重點（${keyIds.length} 題）</button>` : ''}
         <button class="btn ${wrongIds.length ? '' : 'primary'}" data-go="quiz" ${nextQuiz >= 0 ? `data-n="${S.order[nextQuiz]}"` : ''}>${orderDone && nextQuiz >= 0 ? `繼續測驗（還有 ${S.order.length - orderDone} 題）` : nextQuiz < 0 ? '本次測驗已全部作答' : customRange ? `開始測驗（${S.order.length} 題）` : '開始測驗'}</button>
       </div>
     </section>
     <section class="home-board">
       <div class="home-panel">
-        <div class="panel-head"><b>全部題目</b><span>紅燈＝在錯題本　綠燈＝答對　藍燈＝永不再測驗</span></div>
-        <div class="ports home-ports">${ALL.map(n => `<button class="port ${homePortState(n)}" data-hn="${n}" title="第 ${n} 題">${n}</button>`).join('')}</div>
+        <div class="panel-head"><b>全部題目</b><span>紅燈＝在錯題本　綠燈＝答對　藍燈＝永不再測驗　黃點＝重點</span></div>
+        <div class="ports home-ports">${ALL.map(n => `<button class="port ${homePortState(n)} ${S.star[n] ? 'star' : ''}" data-hn="${n}" title="第 ${n} 題">${n}</button>`).join('')}</div>
       </div>
       <p class="sync" id="syncNote">${syncText()}</p>
     </section>
@@ -799,6 +847,18 @@ function renderHome(scrollTop){
           <span class="wcount" title="答錯次數">×${w.c}</span></button></li>`;
       }).join('') + '</ul>'
       : `<div class="wempty">${fresh ? '還沒有錯題。在「測驗」答錯的題目會出現在這裡，連同你當時選的答案。' : '目前沒有錯題，做得好。'}</div>`}
+      <div class="home-key">
+        <h2>重點背誦${keyIds.length ? `<span>${keyIds.length} 題，依題號排列</span>` : ''}</h2>
+        ${keyIds.length ? '<ul class="wlist">' + keyIds.map(n => {
+          const q = byN.get(n);
+          return `<li><button class="witem kitem" data-kn="${n}">
+            <span class="wno">Q${n}</span>
+            <span class="wbody"><span class="wstem">${esc((q.stem || '').replace(/^Refer to the exhibit\.\s*/, ''))}</span>
+            <span class="wmeta"><span class="wwhen">${when(S.star[n])} 加入</span></span></span>
+            <span class="wcount" style="color:#C98A12" aria-hidden="true">★</span></button></li>`;
+        }).join('') + '</ul>'
+        : '<div class="wempty">還沒有重點題目。作答時按題目右上角的「☆ 加入重點」，要背的題目就會收在這裡。</div>'}
+      </div>
     </section>
   </div></div>`;
   $('card').innerHTML = h;
@@ -845,6 +905,14 @@ function toggleMastered(n){
 function grade(n, r){
   if (S.mode === 'quiz'){ const had = S.wrong[n]; S.quiz[n] = Object.assign({}, r, {t: Date.now()}); if (!r.ok) markWrong(n, r); }
   else if (S.mode === 'wrong'){ wrongDone[n] = Object.assign({prev: S.wrong[n] || null}, r); if (!r.ok) markWrong(n, r); }
+  else if (S.mode === 'key'){ keyDone[n] = r; if (!r.ok) markWrong(n, r); }
+  resetCurrent(); render(true); revealScroll('.verdict');
+}
+// 重點背誦模式：不作答直接顯示正確答案與解析（不批改、不記入錯題本）
+function peek(){
+  const n = curN(); if (n === null || S.mode !== 'key' || record(n)) return;
+  const q = byN.get(n); if (!hasAnswer(q)) return;
+  keyDone[n] = q.type === 'mc' ? {sel: [], ok: null, peek: true} : {sel: [], place: correctPlacement(q.dd), ok: null, peek: true};
   resetCurrent(); render(true); revealScroll('.verdict');
 }
 function submit(){
@@ -875,25 +943,27 @@ function jumpTo(n){ const i = list().indexOf(n); if (i < 0) return false; adhoc 
 function portState(n){
   if (S.mode === 'home') return homePortState(n);
   if (S.mastered[n]) return 'mastered';
-  const r = S.mode === 'wrong' ? wrongDone[n] : S.quiz[n];
-  return r ? (r.ok ? 'ok' : 'bad') : '';
+  const r = S.mode === 'wrong' ? wrongDone[n] : S.mode === 'key' ? keyDone[n] : S.quiz[n];
+  return r ? (r.peek ? 'seen' : r.ok ? 'ok' : 'bad') : '';
 }
 function renderPanel(){
   const L = list(), n = curN();
-  $('panelTitle').textContent = S.mode === 'wrong' ? '錯題本題號' : (S.mode === 'quiz' && S.shuffle ? '題號（隨機順序）' : '題號面板');
+  $('panelTitle').textContent = S.mode === 'wrong' ? '錯題本題號' : S.mode === 'key' ? '重點背誦題號' : (S.mode === 'quiz' && S.shuffle ? '題號（隨機順序）' : '題號面板');
   $('panelMeta').textContent = L.length + ' 題';
-  $('ports').innerHTML = L.map((x, i) => `<button class="port ${portState(x)} ${x === n ? 'cur' : ''}" data-i="${i}" title="第 ${x} 題">${x}</button>`).join('');
+  $('ports').innerHTML = L.map((x, i) => `<button class="port ${portState(x)} ${S.star[x] ? 'star' : ''} ${x === n ? 'cur' : ''}" data-i="${i}" title="第 ${x} 題">${x}</button>`).join('');
 }
 function renderStats(){
   const done = Object.keys(S.quiz).length, right = Object.values(S.quiz).filter(r => r.ok).length;
   const wc = Object.keys(S.wrong).length;
   const mc = Object.keys(S.mastered).length;
+  const kc = Object.keys(S.star).length;
   const dark = S.theme ? S.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   $('menuStats').innerHTML = `<div class="row"><span>測驗已作答</span><b>${done} / ${ALL.length}</b></div>
     <div class="row"><span>答對</span><b>${right}</b></div>
     <div class="row"><span>正確率</span><b>${done ? Math.round(right / done * 100) + '%' : '—'}</b></div>
     <div class="row"><span>錯題本</span><b>${wc} 題</b></div>
-    <div class="row"><span>永不再測驗</span><b>${mc} 題</b></div>`;
+    <div class="row"><span>永不再測驗</span><b>${mc} 題</b></div>
+    <div class="row"><span>重點背誦</span><b>${kc} 題</b></div>`;
   const sn = $('menuSync'); if (sn) sn.innerHTML = syncText();
   const pool = poolFor(S.range);
   $('menuSettings').innerHTML = `
@@ -910,11 +980,12 @@ function renderStats(){
     </div>`;
   $('menuManage').innerHTML = `
     ${S.mode === 'wrong' && wrongList.length ? '<button class="mitem" id="restartWrong"><span>重新整理錯題本</span><span class="state">把已答對的移出清單</span></button>' : ''}
-    <button class="mitem" id="exportWrong" ${wc ? '' : 'disabled'}><span>匯出錯題本</span><span class="state">${wc} 題</span></button>
-    <button class="mitem" id="importWrong"><span>匯入錯題本</span><span class="state">${esc(importMsg) || '選擇 JSON 檔'}</span></button>
+    <button class="mitem" id="exportWrong" ${wc || kc ? '' : 'disabled'}><span>匯出錯題本與重點</span><span class="state">${wc} 錯題・${kc} 重點</span></button>
+    <button class="mitem" id="importWrong"><span>匯入錯題本與重點</span><span class="state">${esc(importMsg) || '選擇 JSON 檔'}</span></button>
     <button class="mitem danger" id="resetQuiz" data-label="重新測驗" ${done ? '' : 'disabled'}><span>重新測驗</span><span class="state">清除 ${done} 筆作答</span></button>
     <button class="mitem danger" id="clearWrong" data-label="清空錯題本" ${wc ? '' : 'disabled'}><span>清空錯題本</span><span class="state">${wc} 題</span></button>
-    <button class="mitem danger" id="clearMastered" data-label="還原「永不再測驗」" ${mc ? '' : 'disabled'}><span>還原「永不再測驗」</span><span class="state">${mc} 題</span></button>`;
+    <button class="mitem danger" id="clearMastered" data-label="還原「永不再測驗」" ${mc ? '' : 'disabled'}><span>還原「永不再測驗」</span><span class="state">${mc} 題</span></button>
+    <button class="mitem danger" id="clearStar" data-label="清空重點背誦" ${kc ? '' : 'disabled'}><span>清空重點背誦</span><span class="state">${kc} 題</span></button>`;
   $('shuffleBtn').onclick = () => {
     S.shuffle = !S.shuffle; rebuildOrder(true);
     S.mode = 'quiz'; render(); $('shuffleBtn').focus();
@@ -937,6 +1008,7 @@ function renderStats(){
   armed('resetQuiz', () => { S.quiz = {}; S.pos.quiz = 0; resetCurrent(); render(); });
   armed('clearWrong', () => { S.wrong = {}; buildWrongList(); render(); });
   armed('clearMastered', () => { S.mastered = {}; render(); });
+  armed('clearStar', () => { S.star = {}; if (S.mode === 'key') buildKeyList(); render(); });
   const rw = $('restartWrong'); if (rw) rw.onclick = () => { Object.keys(wrongDone).forEach(k => { if (wrongDone[k].ok) delete S.wrong[+k]; }); buildWrongList(); resetCurrent(); render(); };
   const ew = $('exportWrong'); if (ew) ew.onclick = exportWrong;
   const iw = $('importWrong'); if (iw) iw.onclick = () => $('importWrongFile').click();
@@ -950,9 +1022,10 @@ function armed(id, fn){
   };
 }
 function setMode(m, n){
-  if (m === S.mode && m !== 'wrong' && n === undefined && adhoc === null) return;
+  if (m === S.mode && m !== 'wrong' && m !== 'key' && n === undefined && adhoc === null) return;
   S.mode = m; resetCurrent(); adhoc = null;
   if (m === 'wrong') buildWrongList();
+  if (m === 'key') buildKeyList();
   if (n !== undefined){
     const i = list().indexOf(n);
     if (i >= 0) S.pos[m] = i;
@@ -1028,12 +1101,15 @@ $('card').addEventListener('click', e => {
     const g = e.target.closest('[data-go]');
     if (g){ setMode(g.dataset.go, g.dataset.n ? +g.dataset.n : undefined); return; }
     const w = e.target.closest('[data-wn]'); if (w){ setMode('wrong', +w.dataset.wn); return; }
+    const kn = e.target.closest('[data-kn]'); if (kn){ setMode('key', +kn.dataset.kn); return; }
     const p = e.target.closest('[data-hn]'); if (p){ const n = +p.dataset.hn; setMode(S.wrong[n] ? 'wrong' : 'quiz', n); return; }
     return;
   }
   const fig = e.target.closest('.exhibit');
   if (fig){ openLightbox(fig.dataset.src); return; }
   if (e.target.id === 'clearBoard'){ place = {}; picked = null; render(true); return; }
+  const star = e.target.closest('[data-star]');
+  if (star){ toggleStar(+star.dataset.star); return; }
   const rm = e.target.closest('[data-rm]');
   if (rm){ removeFromWrong(+rm.dataset.rm); return; }
   const add = e.target.closest('[data-add]');
@@ -1077,7 +1153,7 @@ $('mainBtn').onclick = () => {
   else if (act === 'home') setMode('home');
   else go(1);
 };
-$('altBtn').onclick = () => go(1);
+$('altBtn').onclick = () => { if ($('altBtn').dataset.act === 'peek') peek(); else go(1); };
 $('ports').addEventListener('click', e => {
   const p = e.target.closest('.port'); if (!p) return;
   if (S.mode === 'home'){ setMode('quiz', ALL[+p.dataset.i]); closeDrawer(); return; }
@@ -1095,6 +1171,7 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey){ menuOpen() ? closeDrawer() : openDrawer(); return; }
   if (menuOpen()) return;
   if (S.mode === 'home') return;
+  if ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey && !e.altKey){ const n = curN(); if (n !== null) toggleStar(n); return; }
   if (e.key === 'ArrowRight') go(1);
   else if (e.key === 'ArrowLeft') go(-1);
   else if (e.key === 'Enter'){
@@ -1134,7 +1211,7 @@ $('importWrongFile').onchange = (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     const r = importWrongText(String(reader.result));
-    importMsg = r.error ? r.error : `已匯入：新增 ${r.added} 題、合併 ${r.merged} 題${r.skipped ? `，略過 ${r.skipped} 題（非本題庫題號）` : ''}`;
+    importMsg = r.error ? r.error : `已匯入：錯題新增 ${r.added} 題、合併 ${r.merged} 題${r.starAdded ? `，重點新增 ${r.starAdded} 題` : ''}${r.skipped ? `，略過 ${r.skipped} 題（非本題庫題號）` : ''}`;
     if (!r.error) render(); else renderStats();
     clearTimeout(importMsgTimer);
     importMsgTimer = setTimeout(() => { importMsg = ''; renderStats(); }, 4000);
