@@ -14,6 +14,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   ```
 - 沒有 build / lint / test 指令（純靜態單檔專案，無 package.json 或任何建構工具）
 
+## 佈署（GitHub Pages）
+
+- 網址：https://kinwang6632.github.io/ccna-quiz/ （儲存庫 `kinwang6632/ccna-quiz`，公開）
+- 來源：`main` 分支根目錄（`/`），沒有 GitHub Actions workflow；推送到 `main` 後 GitHub 會自動重新發佈，約 1 分鐘生效。
+- 根目錄的 `index.html` 只是用 meta refresh 導向 `ccna-quiz.html`，主程式仍是 `ccna-quiz.html`；若更改主檔名要同步修改導向。
+- `.nojekyll` 讓 Pages 直接提供原始檔、不經 Jekyll 處理，不要刪除。
+- 查看發佈狀態：
+  ```bash
+  gh api repos/kinwang6632/ccna-quiz/pages/builds/latest --jq .status
+  ```
+- 儲存庫是公開的：PDF 原檔與 `*.bak-*` 備份檔已由 `.gitignore` 排除，新增檔案前確認不要把題庫來源或個人資料推上去。
+- 在 Pages 上執行時沒有 `window.claude`，作答紀錄只存在瀏覽器 `localStorage`，不會跨裝置同步（需要時用錯題本匯出／匯入）。
+
 ## 架構
 
 `ccna-quiz.html` 內部大致分三段：
