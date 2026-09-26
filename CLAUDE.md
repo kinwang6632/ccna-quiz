@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 專案概觀
 
-這是一個單一 HTML 檔案構成的 CCNA 認證考古題測驗網頁應用（收錄第 1–840 題），沒有建構流程，也沒有 npm/套件依賴（僅透過 CDN 載入 Google Fonts）。全部 HTML、CSS、JavaScript 與題庫資料都內嵌在 [ccna-quiz.html](ccna-quiz.html) 這一個檔案裡（約 9.7MB，多數體積來自題目內嵌的 base64 圖片）。
+這是一個單一 HTML 檔案構成的 CCNA 認證考古題測驗網頁應用（收錄第 1–1100 題），沒有建構流程，也沒有 npm/套件依賴（僅透過 CDN 載入 Google Fonts）。全部 HTML、CSS、JavaScript 與題庫資料都內嵌在 [ccna-quiz.html](ccna-quiz.html) 這一個檔案裡（約 12MB，多數體積來自題目內嵌的 base64 圖片）。
 
 ## 常用指令
 
@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `ccna-quiz.html` 內部大致分三段：
 
 1. **`<style>`（檔案開頭）**：以 CSS 自訂屬性（`--bg`、`--ink`、`--accent` 等，定義在 `:root`）做主題化，深色主題透過 `<html data-theme="...">` 切換（見 `applyTheme()`）。
-2. **`const DATA = [...]`（第 359 行）**：全部 840 題的題庫，整包資料在同一實體行，是檔案體積的主要來源。每題物件形如 `{n, type, opts|dd, ans, stem, img?, code?, ex?, k?}`，且這一行內容是合法 JSON，可直接用 `json.loads` 解析：
+2. **`const DATA = [...]`（第 359 行）**：全部 1100 題的題庫，整包資料在同一實體行，是檔案體積的主要來源。每題物件形如 `{n, type, opts|dd, ans, stem, img?, code?, ex?, k?}`，且這一行內容是合法 JSON，可直接用 `json.loads` 解析：
    - `type: "mc"` 為選擇題，`k` 為應選數量（`k > 1` 即複選題，`ans` 為多個 key 相連，如 `"AD"`）；`opts` 為 `[key, text]` 選項陣列，選項文字可含 `\n` 表示多行設定指令。
    - `type: "dd"` 為拖放題：`kind: "match"` 為一對一配對，`dd.targets` 為 `{label, ans}`（`ans` 為對應的 item 文字）；`kind: "group"` 為分類型，`dd.groups` 為 `{name, ans: [...]}`。允許部分 item 不屬於任何目標（「Not all options are used」的干擾項）。
    - `img` 欄位是內嵌 base64 WebP 圖片，只放拓樸圖、表格、GUI 截圖等真正的圖形附圖，不要把題幹／選項文字裁進去。
