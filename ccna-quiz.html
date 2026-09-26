@@ -173,6 +173,8 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .mrange-note{margin:6px 0 0;font-family:var(--cjk);font-size:13px;color:var(--muted);line-height:1.7}
 .mrange-note .linkbtn{font-size:13px;margin-left:2px}
 
+.mitem .lno{font-family:var(--mono);font-size:14px;flex:none}
+.mitem .lstem{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;color:var(--muted)}
 .mnote{font-family:var(--cjk);font-size:12.5px;color:var(--muted);margin:0 4px;line-height:1.7}
 .panel-head{display:flex;align-items:baseline;justify-content:space-between;font-family:var(--cjk);font-size:14px;margin:0 2px 10px}
 .panel-head b{font-weight:500}
@@ -185,6 +187,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .port.mastered::before{background:#7FA6FF;box-shadow:0 0 6px #7FA6FF}
 .port.seen::before{background:#E9B949}
 .port.star::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:#F2C14E}
+.port.lab{color:var(--muted);opacity:.6;text-decoration:underline dotted}
 .port.cur{outline:2px solid #7FE0E7;outline-offset:1px;color:#fff}
 .port:hover{color:#fff}
 .legend{display:flex;gap:12px;flex-wrap:wrap;margin:10px 2px 0;font-family:var(--cjk);font-size:12px;color:#A9BBBF}
@@ -361,9 +364,10 @@ body.is-home .bar{display:none}
       </section>
       <section class="msec"><h2>測驗成績</h2><div id="menuStats"></div></section>
       <section class="msec"><h2>設定</h2><div class="mlist" id="menuSettings"></div></section>
+      <section class="msec"><h2>實作題列表</h2><div class="mlist" id="menuLabs"></div></section>
       <section class="msec"><h2>紀錄管理</h2><div class="mlist" id="menuManage"></div></section>
       <p class="menu-sync" id="menuSync"></p>
-      <p class="mnote">共 1100 題（第 1–1100 題全數收錄）。<br>快捷鍵：M 開關選單，← → 換題，A–F 選答，Enter 送出或顯示答案，S 加入／移除重點背誦。</p>
+      <p class="mnote">共 1100 題（第 1–1100 題全數收錄），其中實作題不列入測驗出題，可從上方「實作題列表」或總覽查看。<br>快捷鍵：M 開關選單，← → 換題，A–F 選答，Enter 送出或顯示答案，S 加入／移除重點背誦。</p>
     </div>
   </aside>
   </main>
@@ -375,6 +379,9 @@ const DATA = [{"n":1,"type":"mc","opts":[["A","default route"],["B","network rou
 const byN= new Map(DATA.map(q => [q.n, q]));
 const ALL = DATA.map(q => q.n);
 const KEY = 'ccna120-v3';
+// 實作題（沒有標準答案）不列入測驗出題，只在總覽與功能選單的「實作題列表」中查看
+const LABS = ALL.filter(n => !hasAnswer(byN.get(n)));
+const QUIZ_ALL = ALL.filter(n => hasAnswer(byN.get(n)));
 const RANGE_MIN = Math.min(...ALL), RANGE_MAX = Math.max(...ALL);
 
 /* ---------- saved state ----------
@@ -411,7 +418,7 @@ function adopt(src){
   S.wrong = normWrong(src.wrong);
   S.mastered = normMastered(src.mastered);
   S.star = normStar(src.star);
-  if (Array.isArray(src.order) && src.order.length && src.order.every(n => byN.has(n))) S.order = src.order;
+  if (Array.isArray(src.order) && src.order.length && src.order.every(n => byN.has(n))) S.order = src.order.filter(n => hasAnswer(byN.get(n)));
   S.shuffle = !!src.shuffle;
   if (src.range && Number.isFinite(src.range.from) && Number.isFinite(src.range.to)) S.range = normRange(src.range.from, src.range.to);
   S.count = Number.isFinite(src.count) && src.count > 0 ? src.count : null;
@@ -493,7 +500,7 @@ function normRange(from, to){
   if (from > to) [from, to] = [to, from];
   return {from, to};
 }
-function poolFor(range){ return ALL.filter(n => n >= range.from && n <= range.to && !S.mastered[n]); }
+function poolFor(range){ return QUIZ_ALL.filter(n => n >= range.from && n <= range.to && !S.mastered[n]); }
 function rebuildOrder(resetPos){
   const pool = poolFor(S.range).slice();
   if (S.shuffle) for (let i = pool.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
@@ -821,8 +828,8 @@ function renderHome(scrollTop){
   let h = `<div class="card-body home" id="body"><div class="home-grid">
     <section class="home-intro">
       <h1 class="home-title">${fresh ? '開始練習 CCNA 考古題' : '歡迎回來'}</h1>
-      <p class="home-sum">${fresh ? '共 1100 題，含 113 題拖放題。開始測驗吧，答錯的題目會記下來。'
-        : `測驗已作答 <b>${done}</b> / ${ALL.length} 題，答對 <b>${right}</b> 題${done ? `（${Math.round(right / done * 100)}%）` : ''}。錯題本裡有 <b class="${wrongIds.length ? 'bad-t' : ''}">${wrongIds.length}</b> 題待複習。`}${customRange ? `<br>目前設定的出題範圍：第 ${S.range.from}–${S.range.to} 題，本次測驗 ${S.order.length} 題。` : ''}</p>
+      <p class="home-sum">${fresh ? `共 1100 題，含 113 題拖放題（另有 ${LABS.length} 題實作題不列入測驗）。開始測驗吧，答錯的題目會記下來。`
+        : `測驗已作答 <b>${done}</b> / ${QUIZ_ALL.length} 題，答對 <b>${right}</b> 題${done ? `（${Math.round(right / done * 100)}%）` : ''}。錯題本裡有 <b class="${wrongIds.length ? 'bad-t' : ''}">${wrongIds.length}</b> 題待複習。`}${customRange ? `<br>目前設定的出題範圍：第 ${S.range.from}–${S.range.to} 題，本次測驗 ${S.order.length} 題。` : ''}</p>
       <div class="home-actions">
         ${wrongIds.length ? `<button class="btn primary" data-go="wrong">複習錯題（${wrongIds.length} 題）</button>` : ''}
         ${keyIds.length ? `<button class="btn" data-go="key">背誦重點（${keyIds.length} 題）</button>` : ''}
@@ -831,8 +838,8 @@ function renderHome(scrollTop){
     </section>
     <section class="home-board">
       <div class="home-panel">
-        <div class="panel-head"><b>全部題目</b><span>紅燈＝在錯題本　綠燈＝答對　藍燈＝永不再測驗　黃點＝重點</span></div>
-        <div class="ports home-ports">${ALL.map(n => `<button class="port ${homePortState(n)} ${S.star[n] ? 'star' : ''}" data-hn="${n}" title="第 ${n} 題">${n}</button>`).join('')}</div>
+        <div class="panel-head"><b>全部題目</b><span>紅燈＝在錯題本　綠燈＝答對　藍燈＝永不再測驗　黃點＝重點　灰字＝實作題</span></div>
+        <div class="ports home-ports">${ALL.map(n => `<button class="port ${homePortState(n)} ${S.star[n] ? 'star' : ''} ${hasAnswer(byN.get(n)) ? '' : 'lab'}" data-hn="${n}" title="第 ${n} 題">${n}</button>`).join('')}</div>
       </div>
       <p class="sync" id="syncNote">${syncText()}</p>
     </section>
@@ -958,12 +965,14 @@ function renderStats(){
   const mc = Object.keys(S.mastered).length;
   const kc = Object.keys(S.star).length;
   const dark = S.theme ? S.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-  $('menuStats').innerHTML = `<div class="row"><span>測驗已作答</span><b>${done} / ${ALL.length}</b></div>
+  $('menuStats').innerHTML = `<div class="row"><span>測驗已作答</span><b>${done} / ${QUIZ_ALL.length}</b></div>
     <div class="row"><span>答對</span><b>${right}</b></div>
     <div class="row"><span>正確率</span><b>${done ? Math.round(right / done * 100) + '%' : '—'}</b></div>
     <div class="row"><span>錯題本</span><b>${wc} 題</b></div>
     <div class="row"><span>永不再測驗</span><b>${mc} 題</b></div>
     <div class="row"><span>重點背誦</span><b>${kc} 題</b></div>`;
+  $('menuLabs').innerHTML = LABS.length ? LABS.map(n => `<button class="mitem" data-lab="${n}"><span class="lno">Q${n}</span><span class="lstem">${esc((byN.get(n).stem || '').replace(/^Refer to the exhibit\.\s*/, ''))}</span></button>`).join('')
+    : '<p class="mrange-note" style="padding:10px 16px;margin:0">題庫中沒有實作題。</p>';
   const sn = $('menuSync'); if (sn) sn.innerHTML = syncText();
   const pool = poolFor(S.range);
   $('menuSettings').innerHTML = `
@@ -1204,6 +1213,10 @@ function closeDrawer(){
 $('menuBtn').onclick = () => menuOpen() ? closeDrawer() : openDrawer();
 $('menuClose').onclick = closeDrawer;
 $('drawerBg').onclick = closeDrawer;
+$('menuLabs').onclick = (e) => {
+  const b = e.target.closest('[data-lab]'); if (!b) return;
+  closeDrawer(); setMode('quiz', +b.dataset.lab);
+};
 $('importWrongFile').onchange = (e) => {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
