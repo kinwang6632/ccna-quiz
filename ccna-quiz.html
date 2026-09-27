@@ -275,6 +275,8 @@ pre.code{margin:0 0 18px;background:#10181C;color:#DCE8E6;border-radius:10px;pad
 .wmeta b{font-family:var(--mono)}
 .wwhen{margin-left:auto}
 .wcount{font-family:var(--mono);font-weight:600;color:var(--bad);font-size:15px;padding-top:1px}
+.wrow{display:flex;gap:8px;align-items:center}
+.wrow .witem{flex:1;min-width:0}
 .witem.kitem{border-left-color:#E0B24A}
 .witem.kitem:hover{border-color:#E0B24A}
 .home-key{margin-top:24px}
@@ -853,11 +855,11 @@ function renderHome(scrollTop){
       <h2>錯題清單${wrongIds.length ? `<span>${wrongIds.length} 題，最近錯的在前面</span>` : ''}</h2>
       ${wrongIds.length ? '<ul class="wlist">' + wrongIds.map(n => {
         const w = S.wrong[n], q = byN.get(n);
-        return `<li><button class="witem" data-wn="${n}">
+        return `<li class="wrow"><button class="witem" data-wn="${n}">
           <span class="wno">Q${n}</span>
           <span class="wbody"><span class="wstem">${esc((q.stem || '').replace(/^Refer to the exhibit\.\s*/, ''))}</span>
           <span class="wmeta">${lastAnswerText(n, w)}${w.t ? `<span class="wwhen">${when(w.t)}</span>` : ''}</span></span>
-          <span class="wcount" title="答錯次數">×${w.c}</span></button></li>`;
+          <span class="wcount" title="答錯次數">×${w.c}</span></button>${starBtnHTML(n)}</li>`;
       }).join('') + '</ul>'
       : `<div class="wempty">${fresh ? '還沒有錯題。在「測驗」答錯的題目會出現在這裡，連同你當時選的答案。' : '目前沒有錯題，做得好。'}</div>`}
       <div class="home-key">
@@ -1115,6 +1117,7 @@ $('card').addEventListener('click', e => {
   if (S.mode === 'home'){
     const g = e.target.closest('[data-go]');
     if (g){ setMode(g.dataset.go, g.dataset.n ? +g.dataset.n : undefined); return; }
+    const st = e.target.closest('[data-star]'); if (st){ toggleStar(+st.dataset.star); return; }   // 錯題清單的「加入重點」
     const w = e.target.closest('[data-wn]'); if (w){ setMode('wrong', +w.dataset.wn); return; }
     const kn = e.target.closest('[data-kn]'); if (kn){ setMode('key', +kn.dataset.kn); return; }
     const p = e.target.closest('[data-hn]'); if (p){ const n = +p.dataset.hn; setMode(S.wrong[n] ? 'wrong' : 'quiz', n); return; }
