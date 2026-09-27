@@ -719,7 +719,7 @@ function render(keepScroll){
   const n = curN();
   if (n === null){
     card.innerHTML = S.mode === 'key'
-      ? `<div class="empty"><div><b>重點背誦清單目前是空的</b><p>作答時按題目右上角的「☆ 加入重點」（或快捷鍵 S），就能把要背的題目收進這裡。</p><p>在這裡可以作答，也可以按「直接看答案」快速背誦。</p></div></div>`
+      ? `<div class="empty"><div><b>重點背誦清單目前是空的</b><p>作答時按題目右上角的「☆ 加入重點」（或快捷鍵 S），就能把要背的題目收進這裡。</p><p>在這裡可以作答，也可以按「直接看答案」快速背誦；背熟後按「從重點背誦移除」即可移出。</p></div></div>`
       : `<div class="empty"><div><b>錯題本目前是空的</b><p>在「測驗」模式答錯的題目會自動收進這裡。</p><p>錯題本裡答對後不會自動移出，按下「從錯題本移除」才會刪除該題。</p></div></div>`;
     $('prevBtn').disabled = true; mb.disabled = true; mb.textContent = '下一題'; ab.hidden = true;
     renderPanel(); renderStats(); save(); return;
@@ -753,20 +753,20 @@ function render(keepScroll){
       const locked = revealed;
       return `<li><button class="${cls}" data-k="${k}" ${locked ? 'disabled' : ''}><span class="k">${k}</span><span class="t">${esc(t)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</button></li>`;
     }).join('') + '</ul>';
-    if (rec && rec.peek) h += `<div class="verdict peek">正確答案是 ${q.ans.split('').join('、')}</div>`;
+    if (rec && rec.peek) h += `<div class="verdict peek">正確答案是 ${q.ans.split('').join('、')}${keyToggleTag(n)}</div>`;
     else if (rec){
-      h += rec.ok ? `<div class="verdict ok">答對了${wrongToggleTag(n)}${masterToggleTag(n)}</div>`
-                  : `<div class="verdict bad">答錯了，正確答案是 ${q.ans.split('').join('、')}<small>已記入錯題本</small></div>`;
+      h += rec.ok ? `<div class="verdict ok">答對了${wrongToggleTag(n)}${masterToggleTag(n)}${keyToggleTag(n)}</div>`
+                  : `<div class="verdict bad">答錯了，正確答案是 ${q.ans.split('').join('、')}<small>已記入錯題本</small>${keyToggleTag(n)}</div>`;
       if (S.mode === 'wrong' && rec.prev && rec.prev.last && rec.prev.last.sel) h += `<p class="prevans">上次你選 ${rec.prev.last.sel.join('、')}${rec.prev.t ? '（' + when(rec.prev.t) + '）' : ''}</p>`;
     }
   } else {
     let P = place, grade = false, locked = false;
     if (rec){ P = rec.place; grade = true; locked = true; }
     h += renderBoard(q, locked, P, grade);
-    if (rec && rec.peek) h += `<div class="verdict peek">以下是正確的放法</div>`;
+    if (rec && rec.peek) h += `<div class="verdict peek">以下是正確的放法${keyToggleTag(n)}</div>`;
     else if (rec){
-      h += rec.ok ? `<div class="verdict ok">全部放對了${wrongToggleTag(n)}${masterToggleTag(n)}</div>`
-                  : `<div class="verdict bad">有放錯的地方，紅色的是錯的<small>已記入錯題本</small></div>`;
+      h += rec.ok ? `<div class="verdict ok">全部放對了${wrongToggleTag(n)}${masterToggleTag(n)}${keyToggleTag(n)}</div>`
+                  : `<div class="verdict bad">有放錯的地方，紅色的是錯的<small>已記入錯題本</small>${keyToggleTag(n)}</div>`;
     }
     if (revealed) h += `<section class="ans-area"><h3>正確答案</h3>${answerBox(q)}</section>`;
   }
@@ -899,6 +899,13 @@ function addToWrong(n){
   const r = record(n);
   S.wrong[n] = {c: 1, last: r ? (r.place ? {place: r.place} : {sel: r.sel}) : null, t: Date.now()};
   render(true);
+}
+// 重點背誦模式：在批改／看答案結果列提供移除（誤按可再加回）
+function keyToggleTag(n){
+  if (S.mode !== 'key' || adhoc !== null) return '';
+  return S.star[n]
+    ? `<button class="rmBtn" data-star="${n}">從重點背誦移除</button>`
+    : `<button class="rmBtn" data-star="${n}">加回重點背誦</button>`;
 }
 function masterToggleTag(n){
   return S.mastered[n]
