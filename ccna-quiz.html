@@ -255,6 +255,11 @@ pre.code{margin:0 0 18px;background:#10181C;color:#DCE8E6;border-radius:10px;pad
 .home-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
 .home-panel{background:var(--panel);border-radius:14px;padding:14px 14px 12px;color:#DCE6E8}
 .home-ports{grid-template-columns:repeat(auto-fill,minmax(38px,1fr))}
+.home-jump{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 2px 12px;font-family:var(--cjk);font-size:14px;color:#AFC0C4}
+.home-jump input{width:76px;padding:7px 8px;border:1px solid #46545A;border-radius:8px;background:var(--port);color:#fff;font-family:var(--mono);font-size:15px;text-align:center}
+.home-jump input:focus{outline:2px solid #7FE0E7;outline-offset:1px}
+.home-jump button{padding:7px 14px;border:0;border-radius:8px;background:#7FE0E7;color:#0A1013;font-family:var(--cjk);font-size:14px;font-weight:600;cursor:pointer}
+.home-jump .hj-msg{font-size:13px;color:#FF8A80}
 .sync{font-family:var(--cjk);font-size:13px;color:var(--muted);margin:12px 2px 0;display:flex;gap:8px;align-items:center;line-height:1.5}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--led-off);flex:none}
 .dot.on{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
@@ -839,6 +844,7 @@ function renderHome(scrollTop){
     <section class="home-board">
       <div class="home-panel">
         <div class="panel-head"><b>全部題目</b><span>紅燈＝在錯題本　綠燈＝答對　藍燈＝永不再測驗　黃點＝重點　灰字＝實作題</span></div>
+        <form class="home-jump" id="homeJump" autocomplete="off"><label for="homeJumpIn">跳到第</label><input id="homeJumpIn" type="text" inputmode="numeric" enterkeyhint="go" placeholder="1–${ALL.length}" aria-label="題號">題<button type="submit">前往</button><span class="hj-msg" id="homeJumpMsg"></span></form>
         <div class="ports home-ports">${ALL.map(n => `<button class="port ${homePortState(n)} ${S.star[n] ? 'star' : ''} ${hasAnswer(byN.get(n)) ? '' : 'lab'}" data-hn="${n}" title="第 ${n} 題">${n}</button>`).join('')}</div>
       </div>
       <p class="sync" id="syncNote">${syncText()}</p>
@@ -1168,10 +1174,20 @@ $('ports').addEventListener('click', e => {
   if (S.mode === 'home'){ setMode('quiz', ALL[+p.dataset.i]); closeDrawer(); return; }
   adhoc = null; S.pos[S.mode] = +p.dataset.i; resetCurrent(); render(); closeDrawer();
 });
+// 總覽的「跳到第 N 題」：與點選題號格相同的行為（在錯題本的題目開錯題本，其餘直接查看）
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'homeJump') return;
+  e.preventDefault();
+  const v = parseInt($('homeJumpIn').value, 10);
+  if (!byN.has(v)){ $('homeJumpMsg').textContent = '沒有這一題'; $('homeJumpIn').select(); return; }
+  setMode(S.wrong[v] ? 'wrong' : 'quiz', v);
+});
 $('jumpIn').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const v = parseInt(e.target.value, 10);
-  if (!jumpTo(v)){ e.target.value = ''; e.target.placeholder = byN.has(v) ? '不在清單' : '無此題'; } else e.target.blur();
+  // 測驗模式下若題號不在本次清單內，改成直接查看（與從總覽點選相同，不影響測驗進度）
+  if (!jumpTo(v) && S.mode === 'quiz' && byN.has(v)){ setMode('quiz', v); e.target.blur(); }
+  else if (list().indexOf(v) < 0){ e.target.value = ''; e.target.placeholder = byN.has(v) ? '不在清單' : '無此題'; } else e.target.blur();
   e.stopPropagation();
 });
 document.addEventListener('keydown', e => {
