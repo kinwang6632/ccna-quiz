@@ -522,7 +522,8 @@ let keyList = [];          // 重點背誦模式的題目清單（進入模式�
 let keyDone = {};          // 重點背誦模式本輪的作答／看答案紀錄（不存檔）
 let importMsg = '';        // 匯入錯題本後的暫時狀態文字
 let importMsgTimer = null;
-let adhoc = null;           // 從總覽直接查看、但不在本次測驗清單內的題號（只是查看，不動清單本身）
+let justGraded = null;      // 剛批改完、正在顯示結果的題號（換題時清除）
+let adhoc = null;         // 從總覽直接查看、但不在本次測驗清單內的題號（只是查看，不動清單本身）
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -537,6 +538,9 @@ function curN(){
   return L[S.pos[S.mode]];
 }
 function record(n){ return S.mode === 'quiz' ? S.quiz[n] : S.mode === 'wrong' ? wrongDone[n] : S.mode === 'key' ? keyDone[n] : null; }
+// 畫面上要顯示的作答結果：答對的題目只在剛送出時顯示答案，換題或重新進入後回到未作答狀態可再練一次
+// （作答紀錄與統計仍保留在 record() 中）
+function shownRecord(n){ const r = record(n); return r && r.ok && n !== justGraded ? null : r; }
 function buildWrongList(){ wrongList = Object.keys(S.wrong).map(Number).sort((a, b) => a - b); wrongDone = {}; S.pos.wrong = 0; }
 function buildKeyList(){ keyList = Object.keys(S.star).map(Number).sort((a, b) => a - b); keyDone = {}; S.pos.key = 0; }
 function toggleStar(n){
@@ -600,7 +604,7 @@ function hasAnswer(q){
   }
   return false;
 }
-function resetCurrent(){ sel = []; place = {}; picked = null; }
+function resetCurrent(){ sel = []; place = {}; picked = null; justGraded = null; }
 function applyTheme(){ if (S.theme) document.documentElement.setAttribute('data-theme', S.theme); else document.documentElement.removeAttribute('data-theme'); }
 
 /* ---------- drag & drop model ---------- */
@@ -722,7 +726,7 @@ function render(keepScroll){
     $('prevBtn').disabled = true; mb.disabled = true; mb.textContent = '下一題'; ab.hidden = true;
     renderPanel(); renderStats(); save(); return;
   }
-  const q = byN.get(n), L = list(), rec = record(n);
+  const q = byN.get(n), L = list(), rec = shownRecord(n);
   const inAdhoc = adhoc !== null;   // 從總覽直接查看清單外的題目：不算進本次測驗的進度／統計
   const isLab = !hasAnswer(q);      // 題庫沒附答案：視為實作題，只顯示題目，不提供作答/批改
   const revealed = !!rec;
@@ -926,7 +930,7 @@ function grade(n, r){
   if (S.mode === 'quiz'){ S.quiz[n] =Object.assign({}, r, {t: Date.now()}); if (!r.ok) markWrong(n, r); }
   else if (S.mode === 'wrong'){ wrongDone[n] = Object.assign({prev: S.wrong[n] || null}, r); if (!r.ok) markWrong(n, r); }
   else if (S.mode === 'key'){ keyDone[n] = r; if (!r.ok) markWrong(n, r); }
-  resetCurrent(); render(true); revealScroll('.verdict');
+  resetCurrent(); justGraded = n; render(true); revealScroll('.verdict');
 }
 // 重點背誦模式：不作答直接顯示正確答案與解析（不批改、不記入錯題本）
 function peek(){
@@ -1072,7 +1076,7 @@ function zoneAt(x, y){
 function boardEditable(){
   const n = curN(); if (n === null) return false;
   const q = byN.get(n);
-  if (q.type !== 'dd' || record(n)) return false;
+  if (q.type !== 'dd' || shownRecord(n)) return false;
   return true;
 }
 $('card').addEventListener('pointerdown', e => {
@@ -1161,7 +1165,7 @@ $('card').addEventListener('keydown', e => {
 });
 function toggleOpt(k){
   const n = curN(), q = byN.get(n);
-  if (q.type !== 'mc' || record(n)) return;
+  if (q.type !== 'mc' || shownRecord(n)) return;
   if (q.k === 1) sel = [k];
   else if (sel.includes(k)) sel = sel.filter(x => x !== k);
   else if (sel.length < q.k) sel = [...sel, k];
