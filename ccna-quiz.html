@@ -201,7 +201,6 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .lightbox img{display:block;margin:0 auto;background:#fff;max-width:none;border-radius:6px}
 .lightbox .close{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);right:16px;background:#fff;color:#16232A;border:0;border-radius:8px;padding:6px 12px;font-family:var(--cjk);cursor:pointer}
 
-}
 @media (prefers-reduced-motion: reduce){.side{transition:none}}
 /* drag & drop board */
 .dd{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:18px;align-items:start;max-width:860px}
@@ -377,7 +376,6 @@ body.is-home .bar{display:none}
       <p class="mnote">共 1200 題（第 1–1200 題全數收錄），其中實作題不列入測驗出題，可從上方「實作題列表」或總覽查看。<br>快捷鍵：M 開關選單，← → 換題，A–F 選答，Enter 送出或顯示答案，S 加入／移除重點背誦。</p>
     </div>
   </aside>
-  </main>
 </div>
 <div class="lightbox" id="lightbox"><button class="close">關閉</button><img alt="放大圖"></div>
 
@@ -403,7 +401,7 @@ function readLocal(){
 function normWrong(w){
   const out = {};
   for (const [n, v] of Object.entries(w || {})){
-    if (!byN.has(+n)) continue;
+    if (!byN.has(+n) || !v) continue;          // 略過題庫外的題號與 null 等異常值（避免匯入壞檔時拋錯）
     out[n] = typeof v === 'number' ? {c: v} : {c: v.c || 1, last: v.last || null, t: v.t || null};
   }
   return out;
@@ -433,7 +431,7 @@ function adopt(src){
   S.theme = src.theme || null;
   S.updatedAt = src.updatedAt || 0;
 }
-const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:ALL.slice(), shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, updatedAt:0};
+const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:[], shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, updatedAt:0};
 adopt(readLocal());
 if (!S.order.length) rebuildOrder(false);
 
@@ -925,7 +923,7 @@ function toggleMastered(n){
   render(true);
 }
 function grade(n, r){
-  if (S.mode === 'quiz'){ const had = S.wrong[n]; S.quiz[n] = Object.assign({}, r, {t: Date.now()}); if (!r.ok) markWrong(n, r); }
+  if (S.mode === 'quiz'){ S.quiz[n] =Object.assign({}, r, {t: Date.now()}); if (!r.ok) markWrong(n, r); }
   else if (S.mode === 'wrong'){ wrongDone[n] = Object.assign({prev: S.wrong[n] || null}, r); if (!r.ok) markWrong(n, r); }
   else if (S.mode === 'key'){ keyDone[n] = r; if (!r.ok) markWrong(n, r); }
   resetCurrent(); render(true); revealScroll('.verdict');
@@ -1012,7 +1010,8 @@ function renderStats(){
     <button class="mitem danger" id="clearStar" data-label="清空重點背誦" ${kc ? '' : 'disabled'}><span>清空重點背誦</span><span class="state">${kc} 題</span></button>`;
   $('shuffleBtn').onclick = () => {
     S.shuffle = !S.shuffle; rebuildOrder(true);
-    S.mode = 'quiz'; render(); $('shuffleBtn').focus();
+    // 從其他模式切過來時，清掉殘留的作答選取與「直接查看」狀態，從新順序的第一題開始
+    S.mode = 'quiz'; adhoc = null; resetCurrent(); render(); $('shuffleBtn').focus();
   };
   $('themeBtn').onclick = () => { S.theme = dark ? 'light' : 'dark'; applyTheme(); save(); renderStats(); $('themeBtn').focus(); };
   const applyRangeInputs = () => {
@@ -1021,14 +1020,15 @@ function renderStats(){
     const cnt = parseInt($('quizCount').value, 10);
     S.count = Number.isFinite(cnt) && cnt > 0 ? cnt : null;
     rebuildOrder(true);
-    if (S.mode === 'quiz') render(); else renderStats();
+    // 總覽頁的摘要與「開始測驗」按鈕也依賴 S.order，要一起重繪
+    if (S.mode === 'quiz' || S.mode === 'home') render(); else renderStats();
     save();
   };
   $('rangeFrom').onchange = applyRangeInputs;
   $('rangeTo').onchange = applyRangeInputs;
   $('quizCount').onchange = applyRangeInputs;
   const rr = $('rangeReset');
-  if (rr) rr.onclick = () => { S.range = {from: RANGE_MIN, to: RANGE_MAX}; S.count = null; rebuildOrder(true); if (S.mode === 'quiz') render(); else renderStats(); save(); };
+  if (rr) rr.onclick = () => { S.range = {from: RANGE_MIN, to: RANGE_MAX}; S.count = null; rebuildOrder(true); if (S.mode === 'quiz' || S.mode === 'home') render(); else renderStats(); save(); };
   armed('resetQuiz', () => { S.quiz = {}; S.pos.quiz = 0; resetCurrent(); render(); });
   armed('clearWrong', () => { S.wrong = {}; buildWrongList(); render(); });
   armed('clearMastered', () => { S.mastered = {}; render(); });
