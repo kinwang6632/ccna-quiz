@@ -159,6 +159,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .mitem:hover:not(:disabled){background:var(--accent-soft)}
 .mitem:disabled{opacity:.45;cursor:not-allowed}
 .mitem .state{font-size:14px;color:var(--muted)}
+.mitem small.state{display:block;font-size:12.5px;margin-top:2px}
 .mitem.danger{color:var(--bad)}
 .mitem.armed,.mitem.armed:hover:not(:disabled){background:var(--bad);color:#fff}
 .mitem.armed .state{color:#fff}
@@ -187,6 +188,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .port.mastered::before{background:#7FA6FF;box-shadow:0 0 6px #7FA6FF}
 .port.seen::before{background:#E9B949}
 .port.star::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:#F2C14E}
+.port.off{opacity:.28}
 .port.lab{color:var(--muted);opacity:.6;text-decoration:underline dotted}
 .port.cur{outline:2px solid #7FE0E7;outline-offset:1px;color:#fff}
 .port:hover{color:#fff}
@@ -388,6 +390,12 @@ const KEY = 'ccna120-v3';
 const LABS = ALL.filter(n => !hasAnswer(byN.get(n)));
 const QUIZ_ALL = ALL.filter(n => hasAnswer(byN.get(n)));
 const RANGE_MIN = Math.min(...ALL), RANGE_MAX = Math.max(...ALL);
+// 主題專區：只從指定題號出題（S.topic 為主題 key，null 表示全部題目）
+const TOPICS = {
+  wireless: {name: '無線網路', ids: new Set([7,20,25,28,41,43,68,72,78,80,83,111,112,114,116,126,161,173,175,176,180,182,187,188,191,192,198,207,212,225,233,235,239,251,252,253,262,269,272,273,278,283,285,290,294,301,311,312,313,325,328,330,334,335,336,337,338,339,340,341,555,613,617,618,622,627,628,632,646,648,653,656,660,666,668,669,670,678,684,686,694,699,700,705,706,707,797,799,805,807,811,830,835,837,839,840,841,842,845,847,851,854,858,861,862,863,864,865,866,867,868,869,870,871,872,874,878,880,881,882,885,886,887,888,971,973,978,986,987,996,998,1044,1049,1067,1070,1077,1078,1104,1106,1108,1109,1110,1118,1128,1138,1143,1154,1157,1158,1168,1179,1185,1194,1201,1202,1214,1218,1220,1226,1230,1231,1232,1242,1243,1246,1270,1275,1287,1288,1291])},
+};
+const inTopic = n => !S.topic || TOPICS[S.topic].ids.has(n);
+const topicCount = k => QUIZ_ALL.filter(n => TOPICS[k].ids.has(n)).length;
 
 /* ---------- saved state ----------
    Saved to the viewer's own private record in the artifact database when the page runs
@@ -427,15 +435,16 @@ function adopt(src){
   S.shuffle = !!src.shuffle;
   if (src.range && Number.isFinite(src.range.from) && Number.isFinite(src.range.to)) S.range = normRange(src.range.from, src.range.to);
   S.count = Number.isFinite(src.count) && src.count > 0 ? src.count : null;
+  S.topic = TOPICS[src.topic] ? src.topic : null;
   if (src.pos) S.pos = Object.assign({quiz:0, wrong:0, key:0}, src.pos);
   S.theme = src.theme || null;
   S.updatedAt = src.updatedAt || 0;
 }
-const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:[], shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, updatedAt:0};
+const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:[], shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, topic:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, updatedAt:0};
 adopt(readLocal());
 if (!S.order.length) rebuildOrder(false);
 
-const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, pos:S.pos, mastered:S.mastered, star:S.star, theme:S.theme});
+const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, topic:S.topic, pos:S.pos, mastered:S.mastered, star:S.star, theme:S.theme});
 let lastSig = JSON.stringify(persisted());
 const Sync = {ref:null, state:'local', timer:null, writing:false, dirty:false};
 
@@ -505,7 +514,7 @@ function normRange(from, to){
   if (from > to) [from, to] = [to, from];
   return {from, to};
 }
-function poolFor(range){ return QUIZ_ALL.filter(n => n >= range.from && n <= range.to && !S.mastered[n]); }
+function poolFor(range){ return QUIZ_ALL.filter(n => n >= range.from && n <= range.to && inTopic(n) && !S.mastered[n]); }
 function rebuildOrder(resetPos){
   const pool = poolFor(S.range).slice();
   if (S.shuffle) for (let i = pool.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
@@ -831,17 +840,18 @@ function renderHome(scrollTop){
   const wrongIds = Object.keys(S.wrong).map(Number).sort((a, b) => (S.wrong[b].t || 0) - (S.wrong[a].t || 0) || a - b);
   const nextQuiz = S.order.findIndex(n => !S.quiz[n]);
   const orderDone = S.order.filter(n => S.quiz[n]).length;
-  const customRange = S.range.from !== RANGE_MIN || S.range.to !== RANGE_MAX || S.count;
+  const customRange = S.range.from !== RANGE_MIN || S.range.to !== RANGE_MAX || S.count || S.topic;
   const keyIds = Object.keys(S.star).map(Number).sort((a, b) => a - b);
   const fresh = !done && !wrongIds.length && !keyIds.length;
   let h = `<div class="card-body home" id="body"><div class="home-grid">
     <section class="home-intro">
       <h1 class="home-title">${fresh ? '開始練習 CCNA 考古題' : '歡迎回來'}</h1>
       <p class="home-sum">${fresh ? `共 1300 題，含 148 題拖放題（另有 ${LABS.length} 題實作題不列入測驗）。開始測驗吧，答錯的題目會記下來。`
-        : `測驗已作答 <b>${done}</b> / ${QUIZ_ALL.length} 題，答對 <b>${right}</b> 題${done ? `（${Math.round(right / done * 100)}%）` : ''}。錯題本裡有 <b class="${wrongIds.length ? 'bad-t' : ''}">${wrongIds.length}</b> 題待複習。`}${customRange ? `<br>目前設定的出題範圍：第 ${S.range.from}–${S.range.to} 題，本次測驗 ${S.order.length} 題。` : ''}</p>
+        : `測驗已作答 <b>${done}</b> / ${QUIZ_ALL.length} 題，答對 <b>${right}</b> 題${done ? `（${Math.round(right / done * 100)}%）` : ''}。錯題本裡有 <b class="${wrongIds.length ? 'bad-t' : ''}">${wrongIds.length}</b> 題待複習。`}${customRange ? `<br>目前設定的出題範圍：${S.topic ? `${TOPICS[S.topic].name}專區、` : ''}第 ${S.range.from}–${S.range.to} 題，本次測驗 ${S.order.length} 題。` : ''}</p>
       <div class="home-actions">
         ${wrongIds.length ? `<button class="btn primary" data-go="wrong">複習錯題（${wrongIds.length} 題）</button>` : ''}
         ${keyIds.length ? `<button class="btn" data-go="key">背誦重點（${keyIds.length} 題）</button>` : ''}
+        <button class="btn" data-topic="wireless" aria-pressed="${S.topic === 'wireless'}">${S.topic === 'wireless' ? '離開無線網路專區' : `無線網路專區（${topicCount('wireless')} 題）`}</button>
         <button class="btn ${wrongIds.length ? '' : 'primary'}" data-go="quiz" ${nextQuiz >= 0 ? `data-n="${S.order[nextQuiz]}"` : ''}>${orderDone && nextQuiz >= 0 ? `繼續測驗（還有 ${S.order.length - orderDone} 題）` : nextQuiz < 0 ? '本次測驗已全部作答' : customRange ? `開始測驗（${S.order.length} 題）` : '開始測驗'}</button>
       </div>
     </section>
@@ -849,7 +859,7 @@ function renderHome(scrollTop){
       <div class="home-panel">
         <div class="panel-head"><b>全部題目</b><span>紅燈＝在錯題本　綠燈＝答對　藍燈＝永不再測驗　黃點＝重點　灰字＝實作題</span></div>
         <form class="home-jump" id="homeJump" autocomplete="off"><label for="homeJumpIn">跳到第</label><input id="homeJumpIn" type="text" inputmode="numeric" enterkeyhint="go" placeholder="1–${ALL.length}" aria-label="題號">題<button type="submit">前往</button><span class="hj-msg" id="homeJumpMsg"></span></form>
-        <div class="ports home-ports">${ALL.map(n => `<button class="port ${homePortState(n)} ${S.star[n] ? 'star' : ''} ${hasAnswer(byN.get(n)) ? '' : 'lab'}" data-hn="${n}" title="第 ${n} 題">${n}</button>`).join('')}</div>
+        <div class="ports home-ports">${ALL.map(n => `<button class="port ${homePortState(n)} ${S.star[n] ? 'star' : ''} ${hasAnswer(byN.get(n)) ? '' : 'lab'} ${inTopic(n) ? '' : 'off'}" data-hn="${n}" title="第 ${n} 題">${n}</button>`).join('')}</div>
       </div>
       <p class="sync" id="syncNote">${syncText()}</p>
     </section>
@@ -995,6 +1005,7 @@ function renderStats(){
   $('menuSettings').innerHTML = `
     <button class="mitem" id="shuffleBtn" role="switch" aria-checked="${S.shuffle}"><span>測驗隨機出題</span><span class="switch ${S.shuffle ? 'on' : ''}"></span></button>
     <button class="mitem" id="themeBtn" role="switch" aria-checked="${dark}"><span>深色模式</span><span class="switch ${dark ? 'on' : ''}"></span></button>
+    <button class="mitem" id="topicBtn" role="switch" aria-checked="${S.topic === 'wireless'}"><span>無線網路專區<small class="state">只出無線網路相關題（${topicCount('wireless')} 題）</small></span><span class="switch ${S.topic === 'wireless' ? 'on' : ''}"></span></button>
     <div class="mrange">
       <div class="mrange-row"><span>出題範圍</span><div class="mrange-inputs">
         第<input type="number" id="rangeFrom" inputmode="numeric" min="${RANGE_MIN}" max="${RANGE_MAX}" value="${S.range.from}">–<input type="number" id="rangeTo" inputmode="numeric" min="${RANGE_MIN}" max="${RANGE_MAX}" value="${S.range.to}">題
@@ -1002,7 +1013,7 @@ function renderStats(){
       <div class="mrange-row"><span>測驗題數</span><div class="mrange-inputs">
         <input type="number" id="quizCount" inputmode="numeric" min="1" max="${pool.length}" placeholder="全部" value="${S.count || ''}">題
       </div></div>
-      <p class="mrange-note">目前範圍第 ${S.range.from}–${S.range.to} 題，共 ${pool.length} 題可用；本次測驗 ${S.order.length} 題。${(S.range.from !== RANGE_MIN || S.range.to !== RANGE_MAX || S.count) ? '<button class="linkbtn" id="rangeReset">還原為全部題目</button>' : ''}</p>
+      <p class="mrange-note">目前範圍${S.topic ? `（${TOPICS[S.topic].name}專區）` : ''}第 ${S.range.from}–${S.range.to} 題，共 ${pool.length} 題可用；本次測驗 ${S.order.length} 題。${(S.range.from !== RANGE_MIN || S.range.to !== RANGE_MAX || S.count || S.topic) ? '<button class="linkbtn" id="rangeReset">還原為全部題目</button>' : ''}</p>
     </div>`;
   $('menuManage').innerHTML = `
     ${S.mode === 'wrong' && wrongList.length ? '<button class="mitem" id="restartWrong"><span>重新整理錯題本</span><span class="state">把已答對的移出清單</span></button>' : ''}
@@ -1017,6 +1028,7 @@ function renderStats(){
     // 從其他模式切過來時，清掉殘留的作答選取與「直接查看」狀態，從新順序的第一題開始
     S.mode = 'quiz'; adhoc = null; resetCurrent(); render(); $('shuffleBtn').focus();
   };
+  $('topicBtn').onclick = () => { setTopic(S.topic === 'wireless' ? null : 'wireless'); $('topicBtn').focus(); };
   $('themeBtn').onclick = () => { S.theme = dark ? 'light' : 'dark'; applyTheme(); save(); renderStats(); $('themeBtn').focus(); };
   const applyRangeInputs = () => {
     const from = parseInt($('rangeFrom').value, 10), to = parseInt($('rangeTo').value, 10);
@@ -1032,7 +1044,7 @@ function renderStats(){
   $('rangeTo').onchange = applyRangeInputs;
   $('quizCount').onchange = applyRangeInputs;
   const rr = $('rangeReset');
-  if (rr) rr.onclick = () => { S.range = {from: RANGE_MIN, to: RANGE_MAX}; S.count = null; rebuildOrder(true); if (S.mode === 'quiz' || S.mode === 'home') render(); else renderStats(); save(); };
+  if (rr) rr.onclick = () => { S.range = {from: RANGE_MIN, to: RANGE_MAX}; S.count = null; S.topic = null; rebuildOrder(true); if (S.mode === 'quiz' || S.mode === 'home') render(); else renderStats(); save(); };
   armed('resetQuiz', () => { S.quiz = {}; S.pos.quiz = 0; resetCurrent(); render(); });
   armed('clearWrong', () => { S.wrong = {}; buildWrongList(); render(); });
   armed('clearMastered', () => { S.mastered = {}; render(); });
@@ -1040,6 +1052,13 @@ function renderStats(){
   const rw = $('restartWrong'); if (rw) rw.onclick = () => { Object.keys(wrongDone).forEach(k => { if (wrongDone[k].ok) delete S.wrong[+k]; }); buildWrongList(); resetCurrent(); render(); };
   const ew = $('exportWrong'); if (ew) ew.onclick = exportWrong;
   const iw = $('importWrong'); if (iw) iw.onclick = () => $('importWrongFile').click();
+}
+// 切換主題專區：重建出題順序並從第一題開始，總覽與選單一起重繪
+function setTopic(k){
+  S.topic = k && TOPICS[k] ? k : null;
+  rebuildOrder(true);
+  if (S.mode === 'quiz' || S.mode === 'home') render(); else renderStats();
+  save();
 }
 function armed(id, fn){
   const b = $(id); if (!b) return; let t = null;
@@ -1128,6 +1147,7 @@ $('card').addEventListener('click', e => {
   if (S.mode === 'home'){
     const g = e.target.closest('[data-go]');
     if (g){ setMode(g.dataset.go, g.dataset.n ? +g.dataset.n : undefined); return; }
+    const tp = e.target.closest('[data-topic]'); if (tp){ setTopic(S.topic === tp.dataset.topic ? null : tp.dataset.topic); return; }
     const st = e.target.closest('[data-star]'); if (st){ toggleStar(+st.dataset.star); return; }   // 錯題清單的「加入重點」
     const w = e.target.closest('[data-wn]'); if (w){ setMode('wrong', +w.dataset.wn); return; }
     const kn = e.target.closest('[data-kn]'); if (kn){ setMode('key', +kn.dataset.kn); return; }
