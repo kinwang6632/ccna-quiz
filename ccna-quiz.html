@@ -212,7 +212,9 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .dd.match{grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr)}
 .dd h3,.board-note{font-family:var(--cjk);font-size:14px;font-weight:700;color:var(--muted);margin:0 2px 8px}
 .pool{border:1.5px dashed var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:64px;background:var(--bg)}
-.pool.empty-pool::after{content:"全部放好了";font-family:var(--cjk);font-size:13px;color:var(--muted);text-align:center;padding:10px 0}
+.pool-col{align-self:stretch;display:flex;flex-direction:column}
+.pool-col .pool{flex:1}
+.pool.empty-pool::after{content:"全部放好了，拖回這裡可取消";font-family:var(--cjk);font-size:13px;color:var(--muted);text-align:center;padding:10px 0}
 .chip-item{display:block;width:100%;text-align:left;border:1.5px solid var(--accent);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 12px 9px 34px;font-size:15.5px;line-height:1.45;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;position:relative;font-family:var(--sans)}
 .grip{position:absolute;left:0;top:0;bottom:0;width:30px;touch-action:none;display:grid;place-items:center}
 .grip::before{content:"";width:8px;height:14px;background-image:radial-gradient(circle,var(--muted) 1.2px,transparent 1.4px);background-size:4px 4.7px;opacity:.75}
@@ -748,7 +750,7 @@ function renderBoard(q, locked, P, grade){
     right = d.groups.map((g, gi) => `<div class="grp" data-grp="${gi}"><div class="grp-name">${esc(g.name)}</div>${g.ans.map((_, si) => slot(`g${gi}-${si}`)).join('')}</div>`).join('');
   }
   const hint = matchMedia('(pointer: coarse)').matches ? '選項（按住左側點點拖曳，或點一下再點空格）' : '選項（拖到空格，或點一下再點空格）';
-  const pool = (locked && !poolItems.length) ? '' : `<div><h3>${locked ? '未使用的選項' : hint}</h3><div class="pool ${poolItems.length ? '' : 'empty-pool'}" data-pool="1">${poolItems.map(i => chipHTML(d, i, {locked})).join('')}</div></div>`;
+  const pool = (locked && !poolItems.length) ? '' : `<div class="pool-col"><h3>${locked ? '未使用的選項' : hint}</h3><div class="pool ${poolItems.length ? '' : 'empty-pool'}" data-pool="1">${poolItems.map(i => chipHTML(d, i, {locked})).join('')}</div></div>`;
   let h = `<div class="dd ${d.kind === 'match' ? 'match' : ''}" id="board" ${pool ? '' : 'style="grid-template-columns:1fr"'}>${pool}<div><h3>${d.kind === 'match' ? '對應' : '分類'}</h3>${right}</div></div>`;
   if (!locked && Object.keys(P).length) h += `<div class="board-tools"><button class="linkbtn" id="clearBoard">全部放回</button></div>`;
   return h;
@@ -1178,7 +1180,8 @@ function zoneAt(x, y){
   const el = document.elementFromPoint(x, y); if (!el) return null;
   const s = el.closest('.slot'); if (s && !s.disabled) return {el: s, id: s.dataset.slot};
   const g = el.closest('.grp'); if (g) return {el: g, id: 'grp:' + g.dataset.grp};
-  const p = el.closest('.pool'); if (p) return {el: p, id: 'pool'};
+  // 選項區：整個左欄（含標題與下方空白）都可放回
+  const p = el.closest('.pool-col'); if (p) return {el: p.querySelector('.pool'), id: 'pool'};
   return null;
 }
 function boardEditable(){
@@ -1225,7 +1228,9 @@ function endDrag(e, cancel){
   if (d.over) d.over.classList.remove('over');
   if (cancel) return;
   const z = zoneAt(e.clientX, e.clientY);
-  if (z){ placeItem(byN.get(curN()).dd, d.idx, z.id); picked = null; render(true); }
+  // 已放進答案區的選項被拖到任何目標以外的位置，也視為放回選項區
+  const fromSlot = Object.values(place).includes(d.idx);
+  if (z || fromSlot){ placeItem(byN.get(curN()).dd, d.idx, z ? z.id : 'pool'); picked = null; render(true); }
 }
 $('card').addEventListener('pointerup', e => endDrag(e, false));
 $('card').addEventListener('pointercancel', e => endDrag(e, true));
@@ -1265,7 +1270,7 @@ $('card').addEventListener('click', e => {
     picked = picked === idx ? null : idx; render(true); return;
   }
   if (picked === null) return;
-  const z = inSlot ? {id: inSlot.dataset.slot} : e.target.closest('.grp') ? {id: 'grp:' + e.target.closest('.grp').dataset.grp} : e.target.closest('.pool') ? {id: 'pool'} : null;
+  const z = inSlot ? {id: inSlot.dataset.slot} : e.target.closest('.grp') ? {id: 'grp:' + e.target.closest('.grp').dataset.grp} : e.target.closest('.pool-col') ? {id: 'pool'} : null;
   if (z){ placeItem(d, picked, z.id); picked = null; render(true); }
 });
 $('card').addEventListener('keydown', e => {

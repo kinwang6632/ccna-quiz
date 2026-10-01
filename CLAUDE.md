@@ -50,7 +50,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - 儲存與同步：`save()` 一律先寫入 `localStorage`（key `ccna120-v3`，並相容讀取舊版 `ccna120-v1`/`v2`）；若當前是在 Claude Artifact 環境執行（偵測到 `window.claude.use('db'/'user')`），會另外 debounce（1200ms）同步到雲端文件 `data/users/{uid}/state`（`connectCloud()` / `flush()`），讓紀錄能跨裝置沿用；否則僅存在瀏覽器本機。
    - 錯題本匯入／匯出：功能選單「紀錄管理」中的按鈕，`exportWrong()` 把 `S.wrong` 與 `S.star` 下載成 JSON，`importWrongText()` 讀回並與現有錯題合併（次數加總、保留較新的作答紀錄，略過題庫中不存在的題號）。
    - 渲染方式是手動重繪：修改 `S` 後呼叫 `render()`（或針對性呼叫 `renderHome()` / `renderPanel()` / `renderStats()`）整段重新產生 innerHTML，沒有虛擬 DOM 或框架層。
-   - 拖放題（dd）邏輯集中在 `slotsOf` / `slotCorrect` / `correctPlacement` / `placeItem` / `renderBoard`，同時支援滑鼠拖曳與觸控「點選再點空格」兩種互動方式。
+   - 拖放題（dd）邏輯集中在 `slotsOf` / `slotCorrect` / `correctPlacement` / `placeItem` / `renderBoard`，同時支援滑鼠拖曳與觸控「點選再點空格」兩種互動方式。左側選項區 `.pool-col` 整欄（含下方空白）都是放回選項區的目標；已放進答案區的選項拖到任何目標以外的位置，也會放回選項區（`endDrag()`）。
    - 鍵盤快捷鍵綁在檔案尾端的 `document.addEventListener('keydown', ...)`：`M` 開關選單、`←`/`→` 換題、`A`–`F` 選答、`Enter` 送出或顯示答案、`S` 加入／移除重點背誦。`Home` 回到第一題（總覽則捲回頁首）。
 
 ## 注意事項
