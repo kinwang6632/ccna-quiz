@@ -448,14 +448,15 @@ function adopt(src){
   S.count = Number.isFinite(src.count) && src.count > 0 ? src.count : null;
   S.topic = TOPICS[src.topic] ? src.topic : null;
   if (src.pos) S.pos = Object.assign({quiz:0, wrong:0, key:0}, src.pos);
+  S.wrongAt = Number.isFinite(src.wrongAt) ? src.wrongAt : null;
   S.theme = src.theme || null;
   S.updatedAt = src.updatedAt || 0;
 }
-const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:[], shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, topic:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, updatedAt:0};
+const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:[], shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, topic:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, wrongAt:null, updatedAt:0};
 adopt(readLocal());
 if (!S.order.length) rebuildOrder(false);
 
-const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, topic:S.topic, pos:S.pos, mastered:S.mastered, star:S.star, theme:S.theme});
+const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, topic:S.topic, pos:S.pos, wrongAt:S.wrongAt, mastered:S.mastered, star:S.star, theme:S.theme});
 let lastSig = JSON.stringify(persisted());
 const Sync = {ref:null, state:'local', timer:null, writing:false, dirty:false};
 
@@ -561,7 +562,15 @@ function record(n){ return S.mode === 'quiz' ? S.quiz[n] : S.mode === 'wrong' ? 
 // 畫面上要顯示的作答結果：答對的題目只在剛送出時顯示答案，換題或重新進入後回到未作答狀態可再練一次
 // （作答紀錄與統計仍保留在 record() 中）
 function shownRecord(n){ const r = record(n); return r && r.ok && n !== justGraded ? null : r; }
-function buildWrongList(){ wrongList = Object.keys(S.wrong).map(Number).sort((a, b) => a - b); wrongDone = {}; S.pos.wrong = 0; }
+// 錯題本清單：預設回到上次停留的題號（S.wrongAt），該題已移出時改停在下一題；fresh 為 true 時才從頭開始並清空本輪紀錄
+function buildWrongList(fresh){
+  wrongList = Object.keys(S.wrong).map(Number).sort((a, b) => a - b);
+  if (fresh){ wrongDone = {}; S.pos.wrong = 0; S.wrongAt = null; return; }
+  const at = S.wrongAt;
+  if (at === null || !wrongList.length){ S.pos.wrong = 0; return; }
+  const i = wrongList.findIndex(x => x >= at);
+  S.pos.wrong = i >= 0 ? i : wrongList.length - 1;
+}
 function buildKeyList(){ keyList = Object.keys(S.star).map(Number).sort((a, b) => a - b); keyDone = {}; S.pos.key = 0; }
 function toggleStar(n){
   if (!byN.has(n)) return;
@@ -739,6 +748,7 @@ function render(keepScroll){
   document.body.classList.toggle('is-home', S.mode === 'home');
   if (S.mode === 'home'){ renderHome(keepScroll ? top : 0); renderPanel(); renderStats(); save(); return; }
   const n = curN();
+  if (S.mode === 'wrong' && adhoc === null && n !== null) S.wrongAt = n;   // 記住錯題本停留的題號，下次切回來從這裡繼續
   if (n === null){
     card.innerHTML = S.mode === 'key'
       ? `<div class="empty"><div><b>重點背誦清單目前是空的</b><p>作答時按題目右上角的「☆ 加入重點」（或快捷鍵 S），就能把要背的題目收進這裡。</p><p>在這裡可以作答，也可以按「直接看答案」快速背誦；背熟後按「從重點背誦移除」即可移出。</p></div></div>`
@@ -1081,10 +1091,10 @@ function renderStats(){
   const rr = $('rangeReset');
   if (rr) rr.onclick = () => { S.range = {from: RANGE_MIN, to: RANGE_MAX}; S.count = null; S.topic = null; rebuildOrder(true); if (S.mode === 'quiz' || S.mode === 'home') render(); else renderStats(); save(); };
   armed('resetQuiz', () => { S.quiz = {}; S.pos.quiz = 0; resetCurrent(); render(); });
-  armed('clearWrong', () => { S.wrong = {}; buildWrongList(); render(); });
+  armed('clearWrong', () => { S.wrong = {}; buildWrongList(true); render(); });
   armed('clearMastered', () => { S.mastered = {}; render(); });
   armed('clearStar', () => { S.star = {}; if (S.mode === 'key') buildKeyList(); render(); });
-  const rw = $('restartWrong'); if (rw) rw.onclick = () => { Object.keys(wrongDone).forEach(k => { if (wrongDone[k].ok) delete S.wrong[+k]; }); buildWrongList(); resetCurrent(); render(); };
+  const rw = $('restartWrong'); if (rw) rw.onclick = () => { Object.keys(wrongDone).forEach(k => { if (wrongDone[k].ok) delete S.wrong[+k]; }); buildWrongList(true); resetCurrent(); render(); };
   const ew = $('exportWrong'); if (ew) ew.onclick = exportWrong;
   const iw = $('importWrong'); if (iw) iw.onclick = () => $('importWrongFile').click();
 }
