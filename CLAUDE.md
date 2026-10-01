@@ -43,8 +43,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - **實作題不列入測驗、但保留在總覽**：啟動時依 `hasAnswer` 算出 `LABS`（實作題題號）與 `QUIZ_ALL`（可測驗題號）。`poolFor()` 只從 `QUIZ_ALL` 取題，`adopt()` 讀入舊存檔的 `order` 時也會濾掉實作題，所以測驗清單裡永遠不會出現實作題；測驗成績的分母也用 `QUIZ_ALL.length`。總覽的題號格仍顯示全部 1300 題，實作題加上 `.port.lab`（灰字）標示，點選後以 `adhoc` 方式直接查看、不影響測驗進度。功能選單有「實作題列表」區塊（`#menuLabs`，於 `renderStats()` 內產生），點選項目會關閉選單並以 `setMode('quiz', n)` 直接查看該題。新增或移除實作題時不需改這些邏輯，只要資料符合「答案不完整」的規則即可自動歸類。
 3. **應用邏輯（第 375 行起）**：原生 JavaScript，無框架、無外部 JS 套件。
    - 主題專區：`TOPICS`（緊接在 `RANGE_MIN/MAX` 之後）以題號清單定義主題（目前只有 `wireless` 無線網路，170 題），`S.topic` 記錄目前啟用的主題（`null` 為全部），`poolFor()` 透過 `inTopic()` 篩選出題；總覽右欄的「無線網路專區」區塊（`topicSectionHTML()`，含進度摘要、進入／離開專區按鈕與題目清單）與選單設定的開關都呼叫 `setTopic()`，專區模式下總覽的非專區題號加上 `.port.off` 淡化。新增題目若屬於無線網路，要把題號加進 `TOPICS.wireless.ids`。
-   - 全域狀態物件 `S`：`{mode, pos, order, shuffle, range, count, topic, quiz, wrong, mastered, star, theme, wrongAt, updatedAt}`，對應目前模式、作答進度、答題紀錄、錯題、已精熟題號、重點背誦題號（`star`：`{題號: 加入時間}`）等。
-   - 錯題本位置：`S.wrongAt` 記錄錯題本最後停留的題號（`render()` 時更新並存檔），切回錯題本或重新載入時 `buildWrongList()` 會回到該題（已移出則停在下一題）；只有「重新整理錯題本」「清空錯題本」才用 `buildWrongList(true)` 從頭開始。
+   - 全域狀態物件 `S`：`{mode, pos, order, shuffle, range, count, topic, quiz, wrong, mastered, star, theme, wrongAt, keyAt, updatedAt}`，對應目前模式、作答進度、答題紀錄、錯題、已精熟題號、重點背誦題號（`star`：`{題號: 加入時間}`）等。
+   - 錯題本／重點背誦位置：`S.wrongAt`、`S.keyAt` 記錄兩個模式最後停留的題號（`render()` 時更新並存檔），切回該模式或重新載入時 `buildWrongList()` / `buildKeyList()` 透過 `posAt()` 回到該題（已移出則停在下一題）；只有「重新整理錯題本」「清空錯題本」「清空重點背誦」才傳 `fresh = true` 從頭開始並清空本輪紀錄。
    - 四種模式對應頂部分頁：`home`（總覽，含題號總覽格 + 錯題摘要 + 重點背誦清單 + 統計）、`quiz`（測驗）、`wrong`（錯題本）、`key`（重點背誦）。
    - 重點背誦：每題卡片右上角的 ☆ 按鈕（或快捷鍵 `S`）呼叫 `toggleStar()` 加入／移除；`key` 模式清單由 `buildKeyList()` 依題號建立，可正常作答（答錯同樣記入錯題本），也可按「直接看答案」（`peek()`）不批改直接顯示答案與解析，本輪紀錄存在 `keyDone`（不存檔）。
    - 儲存與同步：`save()` 一律先寫入 `localStorage`（key `ccna120-v3`，並相容讀取舊版 `ccna120-v1`/`v2`）；若當前是在 Claude Artifact 環境執行（偵測到 `window.claude.use('db'/'user')`），會另外 debounce（1200ms）同步到雲端文件 `data/users/{uid}/state`（`connectCloud()` / `flush()`），讓紀錄能跨裝置沿用；否則僅存在瀏覽器本機。
