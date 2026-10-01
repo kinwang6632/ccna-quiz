@@ -878,7 +878,7 @@ function topicSectionHTML(k){
     <p class="topic-sum">已作答 <b>${done}</b> / ${quizIds.length} 題，答對 <b>${right}</b> 題${done ? `（${Math.round(right / done * 100)}%）` : ''}，錯題本 <b>${bad}</b> 題。${on ? '<br>目前測驗只出這個專區的題目。' : ''}</p>
     <div class="topic-actions">
       <button class="btn ${on ? '' : 'primary'}" data-topic="${k}" aria-pressed="${on}">${on ? `離開${t.name}專區` : `只測驗${t.name}（${topicCount(k)} 題）`}</button>
-      ${on ? `<button class="btn primary" data-go="quiz" ${(() => { const nx = S.order.find(n => !S.quiz[n]); return nx ? `data-n="${nx}"` : ''; })()}>前往專區測驗</button>` : ''}
+      ${on ? `<button class="btn primary" data-go="quiz">前往專區測驗</button>` : ''}
     </div>
     <ul class="wlist topic-list">${ids.map(n => {
       const q = byN.get(n), st = hasAnswer(q) ? homePortState(n) : '';
@@ -893,6 +893,7 @@ function renderHome(scrollTop){
   const done = Object.keys(S.quiz).length, right = Object.values(S.quiz).filter(r => r.ok).length;
   const wrongIds = Object.keys(S.wrong).map(Number).sort((a, b) => (S.wrong[b].t || 0) - (S.wrong[a].t || 0) || a - b);
   const nextQuiz = S.order.findIndex(n => !S.quiz[n]);
+  // 「繼續測驗」按鈕不帶 data-n：回到 S.pos.quiz（上次停留的題號），nextQuiz 只用來決定按鈕文字
   const orderDone = S.order.filter(n => S.quiz[n]).length;
   const customRange = S.range.from !== RANGE_MIN || S.range.to !== RANGE_MAX || S.count || S.topic;
   const keyIds = Object.keys(S.star).map(Number).sort((a, b) => a - b);
@@ -905,7 +906,7 @@ function renderHome(scrollTop){
       <div class="home-actions">
         ${wrongIds.length ? `<button class="btn primary" data-go="wrong">複習錯題（${wrongIds.length} 題）</button>` : ''}
         ${keyIds.length ? `<button class="btn" data-go="key">背誦重點（${keyIds.length} 題）</button>` : ''}
-        <button class="btn ${wrongIds.length ? '' : 'primary'}" data-go="quiz" ${nextQuiz >= 0 ? `data-n="${S.order[nextQuiz]}"` : ''}>${orderDone && nextQuiz >= 0 ? `繼續測驗（還有 ${S.order.length - orderDone} 題）` : nextQuiz < 0 ? '本次測驗已全部作答' : customRange ? `開始測驗（${S.order.length} 題）` : '開始測驗'}</button>
+        <button class="btn ${wrongIds.length ? '' : 'primary'}" data-go="quiz">${orderDone && nextQuiz >= 0 ? `繼續測驗（還有 ${S.order.length - orderDone} 題）` : nextQuiz < 0 ? '本次測驗已全部作答' : customRange ? `開始測驗（${S.order.length} 題）` : '開始測驗'}</button>
       </div>
     </section>
     <section class="home-board">
