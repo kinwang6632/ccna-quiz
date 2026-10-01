@@ -545,6 +545,14 @@ let keyDone = {};          // 重點背誦模式本輪的作答／看答案紀�
 let importMsg = '';        // 匯入錯題本後的暫時狀態文字
 let importMsgTimer = null;
 let justGraded = null;      // 剛批改完、正在顯示結果的題號（換題時清除）
+// 總覽頁的捲動位置：離開總覽時記下，切回來或重新載入時回到原處（只存本機，不同步雲端）
+const HOME_SCROLL_KEY = 'ccna-home-scroll';
+let homeScroll = 0;
+try { homeScroll = +localStorage.getItem(HOME_SCROLL_KEY) || 0; } catch(e){}
+function saveHomeScroll(){
+  if (S.mode === 'home' && $('body')) homeScroll = $('body').scrollTop;
+  try { localStorage.setItem(HOME_SCROLL_KEY, String(Math.round(homeScroll))); } catch(e){}
+}
 let adhoc = null;         // 從總覽直接查看、但不在本次測驗清單內的題號（只是查看，不動清單本身）
 
 const $ = id => document.getElementById(id);
@@ -747,6 +755,7 @@ function answerBox(q){
 
 function render(keepScroll){
   const oldBody = $('body'), top = oldBody ? oldBody.scrollTop : 0;
+  if (oldBody && document.body.classList.contains('is-home')){ homeScroll = top; if (S.mode !== 'home') saveHomeScroll(); }
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
   const wc = Object.keys(S.wrong).length;
   $('wrongCnt').textContent = wc ? wc : '';
@@ -754,7 +763,7 @@ function render(keepScroll){
   $('keyCnt').textContent = kc ? kc : '';
   const card = $('card'), mb = $('mainBtn'), ab = $('altBtn');
   document.body.classList.toggle('is-home', S.mode === 'home');
-  if (S.mode === 'home'){ renderHome(keepScroll ? top : 0); renderPanel(); renderStats(); save(); return; }
+  if (S.mode === 'home'){ renderHome(homeScroll); renderPanel(); renderStats(); save(); return; }
   const n = curN();
   // 記住錯題本／重點背誦停留的題號，下次切回來從這裡繼續
   if (adhoc === null && n !== null){ if (S.mode === 'wrong') S.wrongAt = n; else if (S.mode === 'key') S.keyAt = n; }
@@ -1303,6 +1312,8 @@ document.addEventListener('keydown', e => {
     if (q.opts.some(o => o[0] === k)) toggleOpt(k);
   }
 });
+addEventListener('pagehide', saveHomeScroll);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveHomeScroll(); });
 function openLightbox(src){ const lb = $('lightbox'); lb.querySelector('img').src = src; lb.classList.add('open'); }
 function closeLightbox(){ $('lightbox').classList.remove('open'); }
 $('lightbox').onclick = closeLightbox;
