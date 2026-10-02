@@ -25,6 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   gh api repos/kinwang6632/ccna-quiz/pages/builds/latest --jq .status
   ```
 - 儲存庫是公開的：PDF 原檔與 `*.bak-*` 備份檔已由 `.gitignore` 排除，新增檔案前確認不要把題庫來源或個人資料推上去。
+- PDF 原檔另存於私有儲存庫 `kinwang6632/ccna-quiz-pdf`（本機路徑 `~/ccna-quiz-pdf`，不放 iCloud），新增 PDF 時推到那裡，不要推到本公開儲存庫。
 - 在 Pages 上執行時沒有 `window.claude`，作答紀錄只存在瀏覽器 `localStorage`，不會跨裝置同步（需要時用錯題本匯出／匯入）。
 
 ## 架構
