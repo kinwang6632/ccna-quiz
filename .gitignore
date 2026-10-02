@@ -4,3 +4,6 @@
 # 考古題 PDF 原檔（內容已轉入 ccna-quiz.html，檔案過大不納入版控）
 # 原檔另存於私有儲存庫 kinwang6632/ccna-quiz-pdf
 *.pdf
+
+# macOS 系統檔
+.DS_Store
