@@ -287,6 +287,11 @@ pre.code{margin:0 0 18px;background:#10181C;color:#DCE8E6;border-radius:10px;pad
 .witem.kitem{border-left-color:#E0B24A}
 .witem.kitem:hover{border-color:#E0B24A}
 .home-key{margin-top:24px}
+.home-drag{margin-top:24px}
+.witem.ditem{border-left-color:var(--accent)}
+.witem.ditem:hover{border-color:var(--accent)}
+.ddadd{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;cursor:pointer;font-family:var(--cjk);font-size:13px;font-weight:500;color:var(--accent);white-space:nowrap}
+.ddadd:hover{border-color:var(--accent)}
 .home-topic{margin-top:24px}
 .topic-sum{margin:0 0 10px;font-family:var(--cjk);font-size:14.5px;color:var(--muted);line-height:1.7}
 .topic-sum b{font-family:var(--mono);color:var(--ink)}
@@ -320,8 +325,8 @@ body.is-home .bar{display:none}
   body{font-size:16px}
   .top{grid-template-columns:1fr auto;grid-template-areas:"brand menu" "seg seg";gap:8px 10px;padding:8px 10px}
   .brand{grid-area:brand;font-size:17px} .brand small{display:none}
-  .seg{grid-area:seg;width:100%;gap:0} .seg button{flex:1 1 auto;justify-content:center;padding:8px 0;font-size:14px;gap:3px;white-space:nowrap;min-width:0}
-  .seg .cnt{font-size:11px;padding:0 4px} .seg .tl{display:none}
+  .seg{grid-area:seg;width:100%;flex-wrap:wrap;gap:2px} .seg button{flex:1 1 23%;justify-content:center;padding:7px 2px;font-size:14px;gap:4px;white-space:nowrap;min-width:0}
+  .seg .cnt{font-size:11px;padding:0 5px}
   .menubtn{grid-area:menu;padding:7px 11px;font-size:14px}
   .main{padding:0 8px 8px}
   .col{gap:8px}
@@ -364,8 +369,9 @@ body.is-home .bar{display:none}
       <button data-mode="quiz" aria-pressed="false">測驗</button>
       <button data-mode="wrong" data-tier="" aria-pressed="false">錯題本<span class="cnt" id="wrongCnt"></span></button>
       <button data-mode="wrong" data-tier="c2" aria-pressed="false" title="答錯剛好 2 次的錯題">錯2次<span class="cnt" id="tierCntC2"></span></button>
-      <button data-mode="wrong" data-tier="c3" aria-pressed="false" title="答錯 3 次以上的錯題">高錯誤<span class="tl">率</span><span class="cnt" id="tierCntC3"></span></button>
+      <button data-mode="wrong" data-tier="c3" aria-pressed="false" title="答錯 3 次以上的錯題"><span>高錯誤<span class="tl">率</span></span><span class="cnt" id="tierCntC3"></span></button>
       <button data-mode="key" aria-pressed="false">重點<span class="cnt star" id="keyCnt"></span></button>
+      <button data-mode="drag" aria-pressed="false" title="拖拉題專區：只出拖放題"><span>拖拉<span class="tl">題</span></span></button>
     </nav>
     <button class="menubtn" id="menuBtn" aria-haspopup="dialog" aria-controls="side" aria-expanded="false"><span class="burger" aria-hidden="true"><i></i><i></i><i></i></span>選單</button>
   </header>
@@ -412,6 +418,8 @@ const KEY = 'ccna120-v3';
 // 實作題（沒有標準答案）不列入測驗出題，只在總覽與功能選單的「實作題列表」中查看
 const LABS = ALL.filter(n => !hasAnswer(byN.get(n)));
 const QUIZ_ALL = ALL.filter(n => hasAnswer(byN.get(n)));
+// 拖拉題專區：全部可作答的拖放題（實作題除外），S.ddOut 記錄使用者移出專區的題號
+const DDS = QUIZ_ALL.filter(n => byN.get(n).type === 'dd');
 const RANGE_MIN = Math.min(...ALL), RANGE_MAX = Math.max(...ALL);
 // 主題專區：只從指定題號出題（S.topic 為主題 key，null 表示全部題目）
 const TOPICS = {
@@ -435,6 +443,12 @@ function normWrong(w){
     if (!byN.has(+n) || !v) continue;          // 略過題庫外的題號與 null 等異常值（避免匯入壞檔時拋錯）
     out[n] = typeof v === 'number' ? {c: v} : {c: v.c || 1, last: v.last || null, t: v.t || null};
   }
+  return out;
+}
+// 移出拖拉題專區的題號：{題號: 移出時間}
+function normDdOut(m){
+  const out = {};
+  for (const [n, v] of Object.entries(m || {})) if (DDS.includes(+n)) out[n] = typeof v === 'number' ? v : Date.now();
   return out;
 }
 function normMastered(m){
@@ -461,23 +475,25 @@ function adopt(src){
   S.wrong = normWrong(src.wrong);
   S.mastered = normMastered(src.mastered);
   S.star = normStar(src.star);
+  S.ddOut = normDdOut(src.ddOut);
   if (Array.isArray(src.order) && src.order.length && src.order.every(n => byN.has(n))) S.order = src.order.filter(n => hasAnswer(byN.get(n)));
   S.shuffle = !!src.shuffle;
   if (src.range && Number.isFinite(src.range.from) && Number.isFinite(src.range.to)) S.range = normRange(src.range.from, src.range.to);
   S.count = Number.isFinite(src.count) && src.count > 0 ? src.count : null;
   S.topic = TOPICS[src.topic] ? src.topic : null;
-  if (src.pos) S.pos = Object.assign({quiz:0, wrong:0, key:0}, src.pos);
+  if (src.pos) S.pos = Object.assign({quiz:0, wrong:0, key:0, drag:0}, src.pos);
   S.wrongAt = Number.isFinite(src.wrongAt) ? src.wrongAt : null;
   S.keyAt = Number.isFinite(src.keyAt) ? src.keyAt : null;
+  S.ddAt = Number.isFinite(src.ddAt) ? src.ddAt : null;
   S.wrongTier = WTIERS[src.wrongTier] ? src.wrongTier : null;
   S.theme = src.theme || null;
   S.updatedAt = src.updatedAt || 0;
 }
-const S = {mode:'home', pos:{quiz:0, wrong:0, key:0}, order:[], shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, topic:null, quiz:{}, wrong:{}, mastered:{}, star:{}, theme:null, wrongAt:null, keyAt:null, wrongTier:null, updatedAt:0};
+const S = {mode:'home', pos:{quiz:0, wrong:0, key:0, drag:0}, order:[], shuffle:false, range:{from:RANGE_MIN, to:RANGE_MAX}, count:null, topic:null, quiz:{}, wrong:{}, mastered:{}, star:{}, ddOut:{}, theme:null, wrongAt:null, keyAt:null, ddAt:null, wrongTier:null, updatedAt:0};
 adopt(readLocal());
 if (!S.order.length) rebuildOrder(false);
 
-const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, topic:S.topic, pos:S.pos, wrongAt:S.wrongAt, keyAt:S.keyAt, wrongTier:S.wrongTier, mastered:S.mastered, star:S.star, theme:S.theme});
+const persisted = () => ({quiz:S.quiz, wrong:S.wrong, order:S.order, shuffle:S.shuffle, range:S.range, count:S.count, topic:S.topic, pos:S.pos, wrongAt:S.wrongAt, keyAt:S.keyAt, ddAt:S.ddAt, wrongTier:S.wrongTier, mastered:S.mastered, star:S.star, ddOut:S.ddOut, theme:S.theme});
 let lastSig = JSON.stringify(persisted());
 const Sync = {ref:null, state:'local', timer:null, writing:false, dirty:false};
 
@@ -530,7 +546,7 @@ async function connectCloud(){
       if (!S.order.length) rebuildOrder(false);
       lastSig = JSON.stringify(persisted());
       try { localStorage.setItem(KEY, JSON.stringify(Object.assign(persisted(), {updatedAt:S.updatedAt}))); } catch(e){}
-      applyTheme(); if (S.mode === 'wrong') buildWrongList();
+      applyTheme(); if (S.mode === 'wrong') buildWrongList(); if (S.mode === 'drag') buildDragList();
       setSync('cloud'); render(true);
     } else if (hasLocal){
       Sync.dirty = true; await flush();        // first visit with cloud: carry this browser's records over
@@ -562,6 +578,8 @@ let wrongList = [];
 let wrongDone = {};
 let keyList = [];          // 重點背誦模式的題目清單（進入模式時依題號排序建立）
 let keyDone = {};          // 重點背誦模式本輪的作答／看答案紀錄（不存檔）
+let dragList = [];         // 拖拉題專區的題目清單（進入模式時依題號建立，已移出的不列入）
+let dragDone = {};         // 拖拉題專區本輪的作答／看答案紀錄（不存檔）
 let importMsg = '';        // 匯入錯題本後的暫時狀態文字
 let importMsgTimer = null;
 let justGraded = null;      // 剛批改完、正在顯示結果的題號（換題時清除）
@@ -579,7 +597,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const isMono = s => /^[0-9a-fA-F:.\/\s-]+$/.test(s) && /[.:]/.test(s);
 
-function list(){ return S.mode === 'home' ? ALL : S.mode === 'quiz' ? S.order : S.mode === 'key' ? keyList : wrongList; }
+function list(){ return S.mode === 'home' ? ALL : S.mode === 'quiz' ? S.order : S.mode === 'key' ? keyList : S.mode === 'drag' ? dragList : wrongList; }
 function curN(){
   if (S.mode === 'home') return null;
   if (adhoc !== null) return adhoc;      // 直接查看不在清單內的題目：不動用清單，也不動 S.pos
@@ -587,7 +605,7 @@ function curN(){
   S.pos[S.mode] = Math.min(Math.max(S.pos[S.mode], 0), L.length - 1);
   return L[S.pos[S.mode]];
 }
-function record(n){ return S.mode === 'quiz' ? S.quiz[n] : S.mode === 'wrong' ? wrongDone[n] : S.mode === 'key' ? keyDone[n] : null; }
+function record(n){ return S.mode === 'quiz' ? S.quiz[n] : S.mode === 'wrong' ? wrongDone[n] : S.mode === 'key' ? keyDone[n] : S.mode === 'drag' ? dragDone[n] : null; }
 // 畫面上要顯示的作答結果：答對的題目只在剛送出時顯示答案，換題或重新進入後回到未作答狀態可再練一次
 // （作答紀錄與統計仍保留在 record() 中）
 function shownRecord(n){ const r = record(n); return r && r.ok && n !== justGraded ? null : r; }
@@ -616,6 +634,24 @@ function buildKeyList(fresh){
   keyList = Object.keys(S.star).map(Number).sort((a, b) => a - b);
   if (fresh){ keyDone = {}; S.keyAt = null; }
   S.pos.key = posAt(keyList, S.keyAt);
+}
+function buildDragList(fresh){
+  dragList = DDS.filter(n => !S.ddOut[n]);
+  if (fresh){ dragDone = {}; S.ddAt = null; }
+  S.pos.drag = posAt(dragList, S.ddAt);
+}
+// 移出／加回拖拉題專區；清單在進入模式時建立，移出的題目本輪仍留在清單上（可再按加回）
+function toggleDdOut(n){
+  if (!DDS.includes(n)) return;
+  if (S.ddOut[n]) delete S.ddOut[n]; else S.ddOut[n] = Date.now();
+  if (S.mode === 'home'){ const st = $('body') ? $('body').scrollTop : 0; render(); if ($('body')) $('body').scrollTop = st; }
+  else render(true);
+}
+function ddToggleTag(n){
+  if (S.mode !== 'drag' || adhoc !== null) return '';
+  return S.ddOut[n]
+    ? `<button class="rmBtn" data-ddout="${n}">加回拖拉題專區</button>`
+    : `<button class="rmBtn" data-ddout="${n}">移出拖拉題專區</button>`;
 }
 function toggleStar(n){
   if (!byN.has(n)) return;
@@ -798,9 +834,11 @@ function render(keepScroll){
   if (S.mode === 'home'){ renderHome(homeScroll); renderPanel(); renderStats(); save(); return; }
   const n = curN();
   // 記住錯題本／重點背誦停留的題號，下次切回來從這裡繼續
-  if (adhoc === null && n !== null){ if (S.mode === 'wrong') S.wrongAt = n; else if (S.mode === 'key') S.keyAt = n; }
+  if (adhoc === null && n !== null){ if (S.mode === 'wrong') S.wrongAt = n; else if (S.mode === 'key') S.keyAt = n; else if (S.mode === 'drag') S.ddAt = n; }
   if (n === null){
-    card.innerHTML = S.mode === 'key'
+    card.innerHTML = S.mode === 'drag'
+      ? `<div class="empty"><div><b>拖拉題專區的題目都已移出</b><p>共 ${DDS.length} 題拖放題，目前全部移出專區。</p><p>可以在總覽的「拖拉題專區」逐題加回，或從選單「紀錄管理」把全部拖拉題加回。</p></div></div>`
+      : S.mode === 'key'
       ? `<div class="empty"><div><b>重點背誦清單目前是空的</b><p>作答時按題目右上角的「☆ 加入重點」（或快捷鍵 S），就能把要背的題目收進這裡。</p><p>在這裡可以作答，也可以按「直接看答案」快速背誦；背熟後按「從重點背誦移除」即可移出。</p></div></div>`
       : S.wrongTier && Object.keys(S.wrong).length
       ? `<div class="empty"><div><b>「${WTIERS[S.wrongTier].name}」目前沒有題目</b><p>${S.wrongTier === 'c2' ? '答錯剛好 2 次的錯題會出現在這裡。' : '答錯 3 次以上的錯題會出現在這裡，是最需要加強的題目。'}</p><p>按上方「錯題本」回到完整的錯題本。</p></div></div>`
@@ -814,7 +852,7 @@ function render(keepScroll){
   const revealed = !!rec;
   const hist = S.mode === 'wrong' ? (rec ? rec.prev : S.wrong[n]) : null;
   const histTag = hist ? `<span class="hist">之前錯過 ${hist.c} 次</span>` : '';
-  const remain = (!inAdhoc && (S.mode === 'quiz' || S.mode === 'wrong' || S.mode === 'key')) ? L.filter(x => x !== n && !record(x)).length : null;
+  const remain = (!inAdhoc && (S.mode === 'quiz' || S.mode === 'wrong' || S.mode === 'key' || S.mode === 'drag')) ? L.filter(x => x !== n && !record(x)).length : null;
   const remainTag = remain !== null ? `<span class="remain">${remain > 0 ? `還剩 ${remain} 題未作答` : '全部已作答'}</span>` : (inAdhoc ? '<span class="remain">直接查看（不影響測驗進度）</span>' : '');
   const posTag = inAdhoc ? '' : `<span class="pos">${S.pos[S.mode] + 1} / ${L.length}</span>`;
   let h = `<div class="card-head"><span class="qno">Q${n}</span>${typeChip(q)}${histTag}${remainTag}${posTag}${starBtnHTML(n)}</div><div class="card-body" id="body">`;
@@ -837,20 +875,20 @@ function render(keepScroll){
       const locked = revealed;
       return `<li><button class="${cls}" data-k="${k}" ${locked ? 'disabled' : ''}><span class="k">${k}</span><span class="t">${esc(t)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</button></li>`;
     }).join('') + '</ul>';
-    if (rec && rec.peek) h += `<div class="verdict peek">正確答案是 ${q.ans.split('').join('、')}${keyToggleTag(n)}</div>`;
+    if (rec && rec.peek) h += `<div class="verdict peek">正確答案是 ${q.ans.split('').join('、')}${keyToggleTag(n)}${ddToggleTag(n)}</div>`;
     else if (rec){
-      h += rec.ok ? `<div class="verdict ok">答對了${wrongToggleTag(n)}${masterToggleTag(n)}${keyToggleTag(n)}</div>`
-                  : `<div class="verdict bad">答錯了，正確答案是 ${q.ans.split('').join('、')}<small>已記入錯題本</small>${keyToggleTag(n)}</div>`;
+      h += rec.ok ? `<div class="verdict ok">答對了${wrongToggleTag(n)}${masterToggleTag(n)}${keyToggleTag(n)}${ddToggleTag(n)}</div>`
+                  : `<div class="verdict bad">答錯了，正確答案是 ${q.ans.split('').join('、')}<small>已記入錯題本</small>${keyToggleTag(n)}${ddToggleTag(n)}</div>`;
       if (S.mode === 'wrong' && rec.prev && rec.prev.last && rec.prev.last.sel) h += `<p class="prevans">上次你選 ${rec.prev.last.sel.join('、')}${rec.prev.t ? '（' + when(rec.prev.t) + '）' : ''}</p>`;
     }
   } else {
     let P = place, grade = false, locked = false;
     if (rec){ P = rec.place; grade = true; locked = true; }
     h += renderBoard(q, locked, P, grade);
-    if (rec && rec.peek) h += `<div class="verdict peek">以下是正確的放法${keyToggleTag(n)}</div>`;
+    if (rec && rec.peek) h += `<div class="verdict peek">以下是正確的放法${keyToggleTag(n)}${ddToggleTag(n)}</div>`;
     else if (rec){
-      h += rec.ok ? `<div class="verdict ok">全部放對了${wrongToggleTag(n)}${masterToggleTag(n)}${keyToggleTag(n)}</div>`
-                  : `<div class="verdict bad">有放錯的地方，紅色的是錯的<small>已記入錯題本</small>${keyToggleTag(n)}</div>`;
+      h += rec.ok ? `<div class="verdict ok">全部放對了${wrongToggleTag(n)}${masterToggleTag(n)}${keyToggleTag(n)}${ddToggleTag(n)}</div>`
+                  : `<div class="verdict bad">有放錯的地方，紅色的是錯的<small>已記入錯題本</small>${keyToggleTag(n)}${ddToggleTag(n)}</div>`;
     }
     if (revealed) h += `<section class="ans-area"><h3>正確答案</h3>${answerBox(q)}</section>`;
   }
@@ -870,7 +908,7 @@ function render(keepScroll){
   } else if (!rec){
     const complete = q.type === 'mc' ? sel.length === q.k : Object.keys(place).length === slotsOf(q.dd).length;
     mb.dataset.act = 'submit'; mb.textContent = '送出答案'; mb.disabled = !complete;
-    if (S.mode === 'key' && !inAdhoc){ ab.hidden = false; ab.textContent = '直接看答案'; ab.dataset.act = 'peek'; }
+    if ((S.mode === 'key' || S.mode === 'drag') && !inAdhoc){ ab.hidden = false; ab.textContent = '直接看答案'; ab.dataset.act = 'peek'; }
     else if (!last){ ab.hidden = false; ab.textContent = '略過'; ab.dataset.act = 'next'; }
   } else if (inAdhoc){
     mb.dataset.act = 'home'; mb.textContent = '返回總覽'; mb.disabled = false;
@@ -932,6 +970,24 @@ function topicSectionHTML(k){
     }).join('')}</ul>
   </div>`;
 }
+// 總覽的拖拉題專區區塊：進入按鈕＋已移出題目清單（可逐題加回）
+function dragSectionHTML(){
+  const outIds = DDS.filter(n => S.ddOut[n]).sort((a, b) => S.ddOut[b] - S.ddOut[a] || a - b);
+  const inCount = DDS.length - outIds.length;
+  return `<div class="home-drag">
+    <h2>拖拉題專區<span>共 ${DDS.length} 題拖放題，專區內 ${inCount} 題${outIds.length ? `，已移出 ${outIds.length} 題` : ''}</span></h2>
+    <div class="topic-actions"><button class="btn ${inCount ? 'primary' : ''}" data-go="drag" ${inCount ? '' : 'disabled'}>進入拖拉題專區（${inCount} 題）</button></div>
+    ${outIds.length ? '<ul class="wlist topic-list">' + outIds.map(n => {
+      const q = byN.get(n);
+      return `<li class="wrow"><button class="witem ditem" data-hn="${n}">
+        <span class="wno">Q${n}</span>
+        <span class="wbody"><span class="wstem">${esc((q.stem || '').replace(/^Refer to the exhibit\.\s*/, ''))}</span>
+        <span class="wmeta"><span class="wwhen">${when(S.ddOut[n])} 移出</span></span></span></button>
+        <button class="ddadd" data-ddout="${n}" title="加回拖拉題專區">加回</button></li>`;
+    }).join('') + '</ul>'
+    : '<div class="wempty">在專區作答或按「直接看答案」後，可以把已經熟練的題目移出專區；移出的題目會列在這裡，隨時可以加回。</div>'}
+  </div>`;
+}
 function renderHome(scrollTop){
   const done = Object.keys(S.quiz).length, right = Object.values(S.quiz).filter(r => r.ok).length;
   const wrongIds = Object.keys(S.wrong).map(Number).sort((a, b) => (S.wrong[b].t || 0) - (S.wrong[a].t || 0) || a - b);
@@ -983,6 +1039,7 @@ function renderHome(scrollTop){
         }).join('') + '</ul>'
         : '<div class="wempty">還沒有重點題目。作答時按題目右上角的「☆ 加入重點」，要背的題目就會收在這裡。</div>'}
       </div>
+      ${dragSectionHTML()}
       ${topicSectionHTML('wireless')}
     </section>
   </div></div>`;
@@ -1044,13 +1101,14 @@ function grade(n, r){
   if (S.mode === 'quiz'){ S.quiz[n] =Object.assign({}, r, {t: Date.now()}); if (!r.ok) markWrong(n, r); }
   else if (S.mode === 'wrong'){ wrongDone[n] = Object.assign({prev: S.wrong[n] || null}, r); if (!r.ok) markWrong(n, r); }
   else if (S.mode === 'key'){ keyDone[n] = r; if (!r.ok) markWrong(n, r); }
+  else if (S.mode === 'drag'){ dragDone[n] = r; if (!r.ok) markWrong(n, r); }
   resetCurrent(); justGraded = n; render(true); revealScroll('.verdict');
 }
-// 重點背誦模式：不作答直接顯示正確答案與解析（不批改、不記入錯題本）
+// 重點背誦／拖拉題專區：不作答直接顯示正確答案與解析（不批改、不記入錯題本）
 function peek(){
-  const n = curN(); if (n === null || S.mode !== 'key' || record(n)) return;
+  const n = curN(); if (n === null || (S.mode !== 'key' && S.mode !== 'drag') || record(n)) return;
   const q = byN.get(n); if (!hasAnswer(q)) return;
-  keyDone[n] = q.type === 'mc' ? {sel: [], ok: null, peek: true} : {sel: [], place: correctPlacement(q.dd), ok: null, peek: true};
+  (S.mode === 'drag' ? dragDone : keyDone)[n] = q.type === 'mc' ? {sel: [], ok: null, peek: true} : {sel: [], place: correctPlacement(q.dd), ok: null, peek: true};
   resetCurrent(); render(true); revealScroll('.verdict');
 }
 function submit(){
@@ -1091,12 +1149,12 @@ function jumpTo(n){ const i = list().indexOf(n); if (i < 0) return false; adhoc 
 function portState(n){
   if (S.mode === 'home') return homePortState(n);
   if (S.mastered[n]) return 'mastered';
-  const r = S.mode === 'wrong' ? wrongDone[n] : S.mode === 'key' ? keyDone[n] : S.quiz[n];
+  const r = S.mode === 'wrong' ? wrongDone[n] : S.mode === 'key' ? keyDone[n] : S.mode === 'drag' ? dragDone[n] : S.quiz[n];
   return r ? (r.peek ? 'seen' : r.ok ? 'ok' : 'bad') : '';
 }
 function renderPanel(){
   const L = list(), n = curN();
-  $('panelTitle').textContent = S.mode === 'wrong' ? (S.wrongTier ? WTIERS[S.wrongTier].name + '題號' : '錯題本題號') : S.mode === 'key' ? '重點背誦題號' : (S.mode === 'quiz' && S.shuffle ? '題號（隨機順序）' : '題號面板');
+  $('panelTitle').textContent = S.mode === 'wrong' ? (S.wrongTier ? WTIERS[S.wrongTier].name + '題號' : '錯題本題號') : S.mode === 'key' ? '重點背誦題號' : S.mode === 'drag' ? '拖拉題專區題號' : (S.mode === 'quiz' && S.shuffle ? '題號（隨機順序）' : '題號面板');
   $('panelMeta').textContent = L.length + ' 題';
   $('ports').innerHTML = L.map((x, i) => `<button class="port ${portState(x)} ${S.star[x] ? 'star' : ''} ${x === n ? 'cur' : ''}" data-i="${i}" title="第 ${x} 題">${x}</button>`).join('');
 }
@@ -1105,6 +1163,7 @@ function renderStats(){
   const wc = Object.keys(S.wrong).length;
   const mc = Object.keys(S.mastered).length;
   const kc = Object.keys(S.star).length;
+  const oc = Object.keys(S.ddOut).length;
   const dark = S.theme ? S.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   $('menuStats').innerHTML = `<div class="row"><span>測驗已作答</span><b>${done} / ${QUIZ_ALL.length}</b></div>
     <div class="row"><span>答對</span><b>${right}</b></div>
@@ -1113,7 +1172,8 @@ function renderStats(){
     <div class="row"><span>　錯 2 次</span><b>${tierIds('c2').length} 題</b></div>
     <div class="row"><span>　高錯誤率（≥3 次）</span><b>${tierIds('c3').length} 題</b></div>
     <div class="row"><span>永不再測驗</span><b>${mc} 題</b></div>
-    <div class="row"><span>重點背誦</span><b>${kc} 題</b></div>`;
+    <div class="row"><span>重點背誦</span><b>${kc} 題</b></div>
+    <div class="row"><span>拖拉題專區</span><b>${DDS.length - oc} / ${DDS.length} 題</b></div>`;
   $('menuLabs').innerHTML = LABS.length ? LABS.map(n => `<button class="mitem" data-lab="${n}"><span class="lno">Q${n}</span><span class="lstem">${esc((byN.get(n).stem || '').replace(/^Refer to the exhibit\.\s*/, ''))}</span></button>`).join('')
     : '<p class="mrange-note" style="padding:10px 16px;margin:0">題庫中沒有實作題。</p>';
   const sn = $('menuSync'); if (sn) sn.innerHTML = syncText();
@@ -1138,7 +1198,8 @@ function renderStats(){
     <button class="mitem danger" id="resetQuiz" data-label="重新測驗" ${done ? '' : 'disabled'}><span>重新測驗</span><span class="state">清除 ${done} 筆作答</span></button>
     <button class="mitem danger" id="clearWrong" data-label="清空錯題本" ${wc ? '' : 'disabled'}><span>清空錯題本</span><span class="state">${wc} 題</span></button>
     <button class="mitem danger" id="clearMastered" data-label="還原「永不再測驗」" ${mc ? '' : 'disabled'}><span>還原「永不再測驗」</span><span class="state">${mc} 題</span></button>
-    <button class="mitem danger" id="clearStar" data-label="清空重點背誦" ${kc ? '' : 'disabled'}><span>清空重點背誦</span><span class="state">${kc} 題</span></button>`;
+    <button class="mitem danger" id="clearStar" data-label="清空重點背誦" ${kc ? '' : 'disabled'}><span>清空重點背誦</span><span class="state">${kc} 題</span></button>
+    <button class="mitem danger" id="restoreDd" data-label="全部加回拖拉題專區" ${oc ? '' : 'disabled'}><span>全部加回拖拉題專區</span><span class="state">已移出 ${oc} 題</span></button>`;
   $('shuffleBtn').onclick = () => {
     S.shuffle = !S.shuffle; rebuildOrder(true);
     // 從其他模式切過來時，清掉殘留的作答選取與「直接查看」狀態，從新順序的第一題開始
@@ -1165,6 +1226,7 @@ function renderStats(){
   armed('clearWrong', () => { S.wrong = {}; buildWrongList(true); render(); });
   armed('clearMastered', () => { S.mastered = {}; render(); });
   armed('clearStar', () => { S.star = {}; if (S.mode === 'key') buildKeyList(true); render(); });
+  armed('restoreDd', () => { S.ddOut = {}; if (S.mode === 'drag') buildDragList(true); render(); });
   const rw = $('restartWrong'); if (rw) rw.onclick = () => { Object.keys(wrongDone).forEach(k => { if (wrongDone[k].ok) delete S.wrong[+k]; }); buildWrongList(true); resetCurrent(); render(); };
   const ew = $('exportWrong'); if (ew) ew.onclick = exportWrong;
   const iw = $('importWrong'); if (iw) iw.onclick = () => $('importWrongFile').click();
@@ -1188,13 +1250,14 @@ function armed(id, fn){
   };
 }
 function setMode(m, n){
-  if (m === S.mode && m !== 'wrong' && m !== 'key' && n === undefined && adhoc === null) return;
+  if (m === S.mode && m !== 'wrong' && m !== 'key' && m !== 'drag' && n === undefined && adhoc === null) return;
   S.mode = m; resetCurrent(); adhoc = null;
   if (m === 'wrong'){
     buildWrongList();
     if (n !== undefined && S.wrongTier && S.wrong[n] && !wrongList.includes(n)){ S.wrongTier = null; buildWrongList(); }
   }
   if (m === 'key') buildKeyList();
+  if (m === 'drag') buildDragList();
   if (n !== undefined){
     const i = list().indexOf(n);
     if (i >= 0) S.pos[m] = i;
@@ -1274,6 +1337,7 @@ $('card').addEventListener('click', e => {
     if (g){ if (g.dataset.tier !== undefined) setTierState(g.dataset.tier); setMode(g.dataset.go, g.dataset.n ? +g.dataset.n : undefined); return; }
     const tp = e.target.closest('[data-topic]'); if (tp){ setTopic(S.topic === tp.dataset.topic ? null : tp.dataset.topic); return; }
     const st = e.target.closest('[data-star]'); if (st){ toggleStar(+st.dataset.star); return; }   // 錯題清單的「加入重點」
+    const dd = e.target.closest('[data-ddout]'); if (dd){ toggleDdOut(+dd.dataset.ddout); return; }   // 拖拉題專區的「加回」
     const w = e.target.closest('[data-wn]'); if (w){ setMode('wrong', +w.dataset.wn); return; }
     const kn = e.target.closest('[data-kn]'); if (kn){ setMode('key', +kn.dataset.kn); return; }
     const p = e.target.closest('[data-hn]'); if (p){ const n = +p.dataset.hn; setMode(S.wrong[n] ? 'wrong' : 'quiz', n); return; }
@@ -1286,6 +1350,8 @@ $('card').addEventListener('click', e => {
   if (star){ toggleStar(+star.dataset.star); return; }
   const rm = e.target.closest('[data-rm]');
   if (rm){ removeFromWrong(+rm.dataset.rm); return; }
+  const ddo = e.target.closest('[data-ddout]');
+  if (ddo){ toggleDdOut(+ddo.dataset.ddout); return; }
   const add = e.target.closest('[data-add]');
   if (add){ addToWrong(+add.dataset.add); return; }
   const master = e.target.closest('[data-master]');
