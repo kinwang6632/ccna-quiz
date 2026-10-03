@@ -70,8 +70,6 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 /* the card: always the same size */
 .card{flex:1;min-height:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
 .card-head{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line)}
-.tier-actions{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 12px}
-.tier-actions .btn b{font-family:var(--mono)}
 .wcount.hi{background:var(--bad);color:#fff;border-radius:999px;padding:0 8px}
 .qno{font-family:var(--mono);font-weight:600;font-size:22px;letter-spacing:-.01em}
 .qno span{color:var(--muted);font-weight:400;font-size:15px}
@@ -964,7 +962,6 @@ function renderHome(scrollTop){
     </section>
     <section class="home-wrong">
       <h2>錯題清單${wrongIds.length ? `<span>${wrongIds.length} 題，最近錯的在前面</span>` : ''}</h2>
-      ${wrongIds.length ? `<div class="tier-actions">${Object.entries(WTIERS).map(([k, t]) => { const c = tierIds(k).length; return `<button class="btn" data-go="wrong" data-tier="${k}" ${c ? '' : 'disabled'}>${t.name}（<b>${c}</b> 題）</button>`; }).join('')}</div>` : ''}
       ${wrongIds.length ? '<ul class="wlist">' + wrongIds.map(n => {
         const w = S.wrong[n], q = byN.get(n);
         return `<li class="wrow"><button class="witem" data-wn="${n}">
