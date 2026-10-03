@@ -292,6 +292,10 @@ pre.code{margin:0 0 18px;background:#10181C;color:#DCE8E6;border-radius:10px;pad
 .witem.ditem:hover{border-color:var(--accent)}
 .ddadd{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;cursor:pointer;font-family:var(--cjk);font-size:13px;font-weight:500;color:var(--accent);white-space:nowrap}
 .ddadd:hover{border-color:var(--accent)}
+.ddskip{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 10px;margin:0 0 12px;font-family:var(--cjk);font-size:13.5px;color:var(--muted)}
+.ddskip button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;cursor:pointer;font-family:var(--cjk);font-size:13.5px;font-weight:500;color:var(--accent);white-space:nowrap}
+.ddskip button:hover{border-color:var(--accent)}
+.ddskip.undo{justify-content:space-between;background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:6px 6px 6px 12px}
 .home-topic{margin-top:24px}
 .topic-sum{margin:0 0 10px;font-family:var(--cjk);font-size:14.5px;color:var(--muted);line-height:1.7}
 .topic-sum b{font-family:var(--mono);color:var(--ink)}
@@ -580,6 +584,7 @@ let keyList = [];          // 重點背誦模式的題目清單（進入模式�
 let keyDone = {};          // 重點背誦模式本輪的作答／看答案紀錄（不存檔）
 let dragList = [];         // 拖拉題專區的題目清單（進入模式時依題號建立，已移出的不列入）
 let dragDone = {};         // 拖拉題專區本輪的作答／看答案紀錄（不存檔）
+let ddUndo = null;         // 剛用「我會了」移出專區的題號（換題前可復原）
 let importMsg = '';        // 匯入錯題本後的暫時狀態文字
 let importMsgTimer = null;
 let justGraded = null;      // 剛批改完、正在顯示結果的題號（換題時清除）
@@ -646,6 +651,27 @@ function toggleDdOut(n){
   if (S.ddOut[n]) delete S.ddOut[n]; else S.ddOut[n] = Date.now();
   if (S.mode === 'home'){ const st = $('body') ? $('body').scrollTop : 0; render(); if ($('body')) $('body').scrollTop = st; }
   else render(true);
+}
+// 「我會了」：不用作答直接移出專區，立刻從本輪清單拿掉並停在下一題
+function skipDd(n){
+  const i = dragList.indexOf(n); if (i < 0 || adhoc !== null) return;
+  S.ddOut[n] = Date.now();
+  dragList.splice(i, 1); delete dragDone[n];
+  S.pos.drag = Math.min(i, Math.max(dragList.length - 1, 0));
+  resetCurrent(); ddUndo = n; render();
+}
+function undoSkipDd(){
+  const n = ddUndo; if (n === null) return;
+  delete S.ddOut[n];
+  const i = dragList.findIndex(x => x > n);
+  dragList.splice(i < 0 ? dragList.length : i, 0, n);
+  S.pos.drag = dragList.indexOf(n);
+  resetCurrent(); render();
+}
+function ddSkipHTML(n, rec){
+  if (ddUndo !== null) return `<div class="ddskip undo"><span>已將 Q${ddUndo} 移出拖拉題專區</span><button data-ddundo>復原</button></div>`;
+  if (rec || S.ddOut[n]) return '';
+  return `<div class="ddskip"><button data-ddskip="${n}" title="這題已經會了，不用作答直接移出專區">✓ 我會了，移出專區</button></div>`;
 }
 function ddToggleTag(n){
   if (S.mode !== 'drag' || adhoc !== null) return '';
@@ -714,7 +740,7 @@ function hasAnswer(q){
   }
   return false;
 }
-function resetCurrent(){ sel = []; place = {}; picked = null; justGraded = null; }
+function resetCurrent(){ sel = []; place = {}; picked = null; justGraded = null; ddUndo = null; }
 function applyTheme(){ if (S.theme) document.documentElement.setAttribute('data-theme', S.theme); else document.documentElement.removeAttribute('data-theme'); }
 
 /* ---------- drag & drop model ---------- */
@@ -837,7 +863,7 @@ function render(keepScroll){
   if (adhoc === null && n !== null){ if (S.mode === 'wrong') S.wrongAt = n; else if (S.mode === 'key') S.keyAt = n; else if (S.mode === 'drag') S.ddAt = n; }
   if (n === null){
     card.innerHTML = S.mode === 'drag'
-      ? `<div class="empty"><div><b>拖拉題專區的題目都已移出</b><p>共 ${DDS.length} 題拖放題，目前全部移出專區。</p><p>可以在總覽的「拖拉題專區」逐題加回，或從選單「紀錄管理」把全部拖拉題加回。</p></div></div>`
+      ? `<div class="empty"><div><b>拖拉題專區的題目都已移出</b><p>共 ${DDS.length} 題拖放題，目前全部移出專區。</p><p>可以在總覽的「拖拉題專區」逐題加回，或從選單「紀錄管理」把全部拖拉題加回。</p>${ddUndo !== null ? `<p><button class="linkbtn" data-ddundo>復原 Q${ddUndo}</button></p>` : ''}</div></div>`
       : S.mode === 'key'
       ? `<div class="empty"><div><b>重點背誦清單目前是空的</b><p>作答時按題目右上角的「☆ 加入重點」（或快捷鍵 S），就能把要背的題目收進這裡。</p><p>在這裡可以作答，也可以按「直接看答案」快速背誦；背熟後按「從重點背誦移除」即可移出。</p></div></div>`
       : S.wrongTier && Object.keys(S.wrong).length
@@ -856,6 +882,7 @@ function render(keepScroll){
   const remainTag = remain !== null ? `<span class="remain">${remain > 0 ? `還剩 ${remain} 題未作答` : '全部已作答'}</span>` : (inAdhoc ? '<span class="remain">直接查看（不影響測驗進度）</span>' : '');
   const posTag = inAdhoc ? '' : `<span class="pos">${S.pos[S.mode] + 1} / ${L.length}</span>`;
   let h = `<div class="card-head"><span class="qno">Q${n}</span>${typeChip(q)}${histTag}${remainTag}${posTag}${starBtnHTML(n)}</div><div class="card-body" id="body">`;
+  if (S.mode === 'drag' && !inAdhoc) h += ddSkipHTML(n, rec);
   if (q.stem) h += `<p class="stem">${esc(q.stem)}</p>`;
   if (q.code) h += `<pre class="code">${esc(q.code)}</pre>`;
   if (q.img) h += exhibitHTML(q.img, `第 ${n} 題附圖`);
@@ -1352,6 +1379,9 @@ $('card').addEventListener('click', e => {
   if (rm){ removeFromWrong(+rm.dataset.rm); return; }
   const ddo = e.target.closest('[data-ddout]');
   if (ddo){ toggleDdOut(+ddo.dataset.ddout); return; }
+  const dds = e.target.closest('[data-ddskip]');
+  if (dds){ skipDd(+dds.dataset.ddskip); return; }
+  if (e.target.closest('[data-ddundo]')){ undoSkipDd(); return; }
   const add = e.target.closest('[data-add]');
   if (add){ addToWrong(+add.dataset.add); return; }
   const master = e.target.closest('[data-master]');
