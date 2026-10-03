@@ -689,7 +689,10 @@ function starBtnHTML(n){
   return `<button class="starBtn" data-star="${n}" aria-pressed="${on}" title="${on ? '從重點背誦移除' : '加入重點背誦'}（快捷鍵 S）"><span class="ic" aria-hidden="true">${on ? '★' : '☆'}</span><span class="st-t">${on ? '重點' : '加入重點'}</span></button>`;
 }
 function exportWrong(){
-  const payload = {app:'ccna-quiz', kind:'wrong', version:1, exportedAt:Date.now(), count:Object.keys(S.wrong).length, wrong:S.wrong, star:S.star};
+  // 錯題分區由答錯次數 c 推算，另外附上各分區題號清單，方便檢視與匯入時校正次數
+  const tiers = {};
+  for (const k of Object.keys(WTIERS)) tiers[k] = tierIds(k).sort((a, b) => a - b);
+  const payload = {app:'ccna-quiz', kind:'wrong', version:2, exportedAt:Date.now(), count:Object.keys(S.wrong).length, wrong:S.wrong, tiers, star:S.star};
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -703,7 +706,8 @@ function mergeWrong(incoming){
   for (const [n, v] of Object.entries(incoming)){
     const prev = S.wrong[n];
     if (prev){
-      S.wrong[n] = {c: (prev.c || 1) + (v.c || 1), last: (v.t || 0) >= (prev.t || 0) ? (v.last || prev.last) : prev.last, t: Math.max(prev.t || 0, v.t || 0)};
+      // 次數取較大值而非加總：重複匯入同一份檔案時，錯題分區（錯 2 次／高錯誤率）不會被灌高
+      S.wrong[n] = {c: Math.max(prev.c || 1, v.c || 1), last: (v.t || 0) >= (prev.t || 0) ? (v.last || prev.last) : prev.last, t: Math.max(prev.t || 0, v.t || 0)};
       merged++;
     } else {
       S.wrong[n] = {c: v.c || 1, last: v.last || null, t: v.t || Date.now()};
@@ -719,6 +723,14 @@ function importWrongText(text){
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {error:'檔案內容格式不符'};
   const total = Object.keys(raw).length;
   const incoming = normWrong(raw);
+  // 依檔案中的分區清單校正次數下限（相容只有分區清單、缺少次數的檔案）
+  const floor = {c2: 2, c3: 3};
+  if (parsed.tiers && typeof parsed.tiers === 'object'){
+    for (const [k, min] of Object.entries(floor)){
+      const ids = Array.isArray(parsed.tiers[k]) ? parsed.tiers[k] : [];
+      for (const n of ids) if (incoming[n] && (incoming[n].c || 1) < min) incoming[n].c = min;
+    }
+  }
   const skipped = total - Object.keys(incoming).length;
   const {added, merged} = mergeWrong(incoming);
   // 重點背誦清單：取聯集，保留較早的加入時間
@@ -728,7 +740,7 @@ function importWrongText(text){
   }
   if (!added && !merged && !starAdded) return {error: skipped ? '檔案裡的題號都不屬於本題庫' : '檔案沒有可匯入的題目'};
   buildWrongList();
-  return {added, merged, skipped, starAdded};
+  return {added, merged, skipped, starAdded, c2: tierIds('c2').length, c3: tierIds('c3').length};
 }
 // 題庫裡沒有標準答案的題目（例如需要實機/模擬器操作驗證的實作題），一律視為無法批改，只顯示題目本身
 function hasAnswer(q){
@@ -1220,7 +1232,7 @@ function renderStats(){
     </div>`;
   $('menuManage').innerHTML = `
     ${S.mode === 'wrong' && wrongList.length ? '<button class="mitem" id="restartWrong"><span>重新整理錯題本</span><span class="state">把已答對的移出清單</span></button>' : ''}
-    <button class="mitem" id="exportWrong" ${wc || kc ? '' : 'disabled'}><span>匯出錯題本與重點</span><span class="state">${wc} 錯題・${kc} 重點</span></button>
+    <button class="mitem" id="exportWrong" ${wc || kc ? '' : 'disabled'}><span>匯出錯題本與重點</span><span class="state">${wc} 錯題（錯2次 ${tierIds('c2').length}・高錯誤率 ${tierIds('c3').length}）・${kc} 重點</span></button>
     <button class="mitem" id="importWrong"><span>匯入錯題本與重點</span><span class="state">${esc(importMsg) || '選擇 JSON 檔'}</span></button>
     <button class="mitem danger" id="resetQuiz" data-label="重新測驗" ${done ? '' : 'disabled'}><span>重新測驗</span><span class="state">清除 ${done} 筆作答</span></button>
     <button class="mitem danger" id="clearWrong" data-label="清空錯題本" ${wc ? '' : 'disabled'}><span>清空錯題本</span><span class="state">${wc} 題</span></button>
@@ -1499,7 +1511,7 @@ $('importWrongFile').onchange = (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     const r = importWrongText(String(reader.result));
-    importMsg = r.error ? r.error : `已匯入：錯題新增 ${r.added} 題、合併 ${r.merged} 題${r.starAdded ? `，重點新增 ${r.starAdded} 題` : ''}${r.skipped ? `，略過 ${r.skipped} 題（非本題庫題號）` : ''}`;
+    importMsg = r.error ? r.error : `已匯入：錯題新增 ${r.added} 題、合併 ${r.merged} 題（目前錯2次 ${r.c2} 題、高錯誤率 ${r.c3} 題）${r.starAdded ? `，重點新增 ${r.starAdded} 題` : ''}${r.skipped ? `，略過 ${r.skipped} 題（非本題庫題號）` : ''}`;
     if (!r.error) render(); else renderStats();
     clearTimeout(importMsgTimer);
     importMsgTimer = setTimeout(() => { importMsg = ''; renderStats(); }, 4000);
